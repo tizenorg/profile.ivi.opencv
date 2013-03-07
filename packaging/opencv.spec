@@ -30,10 +30,9 @@ Url:            http://%{name}.willowgarage.com/wiki/
 Source0:        http://downloads.sourceforge.net/project/%{name}library/%{name}-unix/%{version}/OpenCV-%{version}.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  cmake
-BuildRequires:  dos2unix
 BuildRequires:  fdupes
-BuildRequires:  gstreamer-0_10-plugins-base-devel
-BuildRequires:  libqt4-devel
+#BuildRequires:  gstreamer-0_10-plugins-base-devel
+BuildRequires: gstreamer-devel
 BuildRequires:  libilmbase-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  libtiff-devel
