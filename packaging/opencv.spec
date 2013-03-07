@@ -68,14 +68,6 @@ This package contains the OpenCV C/C++ library and header files, as well as
 documentation. It should be installed if you want to develop programs that will
 use the OpenCV library.
 
-%package -n python-%{name}
-Summary:        Python bindings for apps which use OpenCV
-Group:          Development/Libraries/Python
-Requires:       python-base = %{py_ver}
-
-%description -n python-%{name}
-This package contains Python bindings for the OpenCV library.
-
 %package -n %{name}-doc
 Summary:        Documentation and examples for OpenCV
 Group:          Development/Libraries/C and C++
