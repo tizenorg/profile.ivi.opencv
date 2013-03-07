@@ -97,11 +97,11 @@ make %{?_smp_mflags} VERBOSE=1
 %install
 cd build
 make DESTDIR=%{?buildroot:%{buildroot}} install/fast
-mkdir -p %{buildroot}%{_docdir}
-mv %{buildroot}%{_datadir}/OpenCV/doc %{buildroot}%{_docdir}/%{name}-doc
-mv %{buildroot}%{_datadir}/OpenCV/samples %{buildroot}%{_docdir}/%{name}-doc/examples
-dos2unix %{buildroot}%{_docdir}/%{name}-doc/examples/python*/*.py
-dos2unix %{buildroot}%{_docdir}/%{name}-doc/examples/gpu/*.cpp
+#mkdir -p %{buildroot}%{_docdir}
+#mv %{buildroot}%{_datadir}/OpenCV/doc %{buildroot}%{_docdir}/%{name}-doc
+#mv %{buildroot}%{_datadir}/OpenCV/samples %{buildroot}%{_docdir}/%{name}-doc/examples
+#dos2unix %{buildroot}%{_docdir}/%{name}-doc/examples/python*/*.py
+#dos2unix %{buildroot}%{_docdir}/%{name}-doc/examples/gpu/*.cpp
 %fdupes -s %{buildroot}%{_docdir}/%{name}-doc/examples
 
 %clean
