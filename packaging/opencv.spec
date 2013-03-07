@@ -28,8 +28,6 @@ License:        BSD-3-Clause
 Group:          Development/Libraries/C and C++
 Url:            http://%{name}.willowgarage.com/wiki/
 Source0:        http://downloads.sourceforge.net/project/%{name}library/%{name}-unix/%{version}/OpenCV-%{version}.tar.bz2
-Patch1:         %{name}-samples.patch
-Patch2:         %{name}-underlinking.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  cmake
 BuildRequires:  dos2unix
@@ -74,7 +72,6 @@ use the OpenCV library.
 Summary:        Python bindings for apps which use OpenCV
 Group:          Development/Libraries/Python
 Requires:       python-base = %{py_ver}
-%py_requires
 
 %description -n python-%{name}
 This package contains Python bindings for the OpenCV library.
@@ -91,8 +88,6 @@ This package contains the documentation and examples for the OpenCV library.
 
 %prep
 %setup -qn OpenCV-%{version}
-%patch1 -p1
-%patch2 -p1
 
 # Windows specific and with wrong end of line
 rm -f doc/packaging.txt
@@ -112,10 +107,10 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_SKIP_RPATH=ON \
       -DBUILD_TESTS=OFF \
       -DINSTALL_C_EXAMPLES=ON \
-      -DINSTALL_PYTHON_EXAMPLES=ON \
+      -DINSTALL_PYTHON_EXAMPLES=OFF \
       -DLIB_SUFFIX=$(echo %{_lib} | cut -b4-) \
       -DENABLE_OMIT_FRAME_POINTER=OFF \
-      -DWITH_QT=ON \
+      -DWITH_QT=OFF \
       -DWITH_OPENGL=ON \
       -DWITH_UNICAP=ON \
       -DWITH_XINE=ON \
@@ -157,10 +152,10 @@ rm -rf %{buildroot}
 %{_libdir}/pkgconfig/%{name}.pc
 %{_datadir}/OpenCV/OpenCVConfig*.cmake
 
-%files -n python-%{name}
-%defattr(0644, root, root, 0755)
-%{python_sitearch}/cv.py
-%{python_sitearch}/cv2.so
+#%files -n python-%{name}
+#%defattr(0644, root, root, 0755)
+#%{python_sitearch}/cv.py
+#%{python_sitearch}/cv2.so
 
 %files -n %{name}-doc
 %defattr(-, root, root, 0755)
