@@ -71,7 +71,6 @@ use the OpenCV library.
 %package -n %{name}-doc
 Summary:        Documentation and examples for OpenCV
 Group:          Development/Libraries/C and C++
-Recommends:     python
 # Since this package also contains examples that need -devel to be compiled
 Recommends:     %{name}-devel
 
