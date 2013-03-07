@@ -72,7 +72,7 @@ use the OpenCV library.
 Summary:        Documentation and examples for OpenCV
 Group:          Development/Libraries/C and C++
 # Since this package also contains examples that need -devel to be compiled
-Recommends:     %{name}-devel
+Requires:     %{name}-devel
 
 %description -n %{name}-doc
 This package contains the documentation and examples for the OpenCV library.
