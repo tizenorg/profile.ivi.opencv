@@ -63,15 +63,6 @@ This package contains the OpenCV C/C++ library and header files, as well as
 documentation. It should be installed if you want to develop programs that will
 use the OpenCV library.
 
-%package -n %{name}-doc
-Summary:        Documentation and examples for OpenCV
-Group:          Development/Libraries/C and C++
-# Since this package also contains examples that need -devel to be compiled
-Requires:     %{name}-devel
-
-%description -n %{name}-doc
-This package contains the documentation and examples for the OpenCV library.
-
 %prep
 %setup -qn OpenCV-%{version}
 
@@ -142,9 +133,5 @@ rm -rf %{buildroot}
 #%defattr(0644, root, root, 0755)
 #%{python_sitearch}/cv.py
 #%{python_sitearch}/cv2.so
-
-%files -n %{name}-doc
-%defattr(-, root, root, 0755)
-%{_docdir}/%{name}-doc
 
 %changelog
