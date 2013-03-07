@@ -33,14 +33,10 @@ BuildRequires:  cmake
 BuildRequires:  fdupes
 #BuildRequires:  gstreamer-0_10-plugins-base-devel
 BuildRequires: gstreamer-devel
-BuildRequires:  libilmbase-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  libtiff-devel
-BuildRequires:  python-devel
-BuildRequires:  python-numpy-devel
 BuildRequires:  zlib-devel
 BuildRequires:  pkgconfig(glu)
-BuildRequires:  libv4l-devel
 
 %description
 OpenCV means Intel® Open Source Computer Vision Library. It is a collection of C
