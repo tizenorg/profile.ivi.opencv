@@ -36,7 +36,6 @@ BuildRequires: gstreamer-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  libtiff-devel
 BuildRequires:  zlib-devel
-BuildRequires:  pkgconfig(glu)
 
 %description
 OpenCV means Intel® Open Source Computer Vision Library. It is a collection of C
@@ -88,7 +87,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DLIB_SUFFIX=$(echo %{_lib} | cut -b4-) \
       -DENABLE_OMIT_FRAME_POINTER=OFF \
       -DWITH_QT=OFF \
-      -DWITH_OPENGL=ON \
       -DWITH_UNICAP=ON \
       -DWITH_XINE=ON \
        ..
