@@ -1,76 +1,64 @@
+/*M///////////////////////////////////////////////////////////////////////////////////////
+//
+//  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
+//
+//  By downloading, copying, installing or using the software you agree to this license.
+//  If you do not agree to this license, do not download, install,
+//  copy or use the software.
+//
+//
+//                           License Agreement
+//                For Open Source Computer Vision Library
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+//   * Redistribution's of source code must retain the above copyright notice,
+//     this list of conditions and the following disclaimer.
+//
+//   * Redistribution's in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//
+//   * The name of the copyright holders may not be used to endorse or promote products
+//     derived from this software without specific prior written permission.
+//
+// This software is provided by the copyright holders and contributors "as is" and
+// any express or implied warranties, including, but not limited to, the implied
+// warranties of merchantability and fitness for a particular purpose are disclaimed.
+// In no event shall the Intel Corporation or contributors be liable for any direct,
+// indirect, incidental, special, exemplary, or consequential damages
+// (including, but not limited to, procurement of substitute goods or services;
+// loss of use, data, or profits; or business interruption) however caused
+// and on any theory of liability, whether in contract, strict liability,
+// or tort (including negligence or otherwise) arising in any way out of
+// the use of this software, even if advised of the possibility of such damage.
+//
+//M*/
+
 #include <cstdio>
-#ifdef HAVE_CVCONFIG_H
+
 #include "cvconfig.h"
-#endif
+
+#include "opencv2/ts/ts.hpp"
+#include "opencv2/ts/gpu_perf.hpp"
+
 #include "opencv2/core/core.hpp"
 #include "opencv2/gpu/gpu.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/video/video.hpp"
 #include "opencv2/legacy/legacy.hpp"
-#include "opencv2/ts/ts.hpp"
-#include "opencv2/ts/ts_perf.hpp"
 
-static void printOsInfo()
-{
-#if defined _WIN32
-#   if defined _WIN64
-        printf("[----------]\n[ GPU INFO ] \tRun on OS Windows x64.\n[----------]\n"); fflush(stdout);
-#   else
-        printf("[----------]\n[ GPU INFO ] \tRun on OS Windows x32.\n[----------]\n"); fflush(stdout);
-#   endif
-#elif defined linux
-#   if defined _LP64
-        printf("[----------]\n[ GPU INFO ] \tRun on OS Linux x64.\n[----------]\n"); fflush(stdout);
-#   else
-        printf("[----------]\n[ GPU INFO ] \tRun on OS Linux x32.\n[----------]\n"); fflush(stdout);
-#   endif
-#elif defined __APPLE__
-#   if defined _LP64
-        printf("[----------]\n[ GPU INFO ] \tRun on OS Apple x64.\n[----------]\n"); fflush(stdout);
-#   else
-        printf("[----------]\n[ GPU INFO ] \tRun on OS Apple x32.\n[----------]\n"); fflush(stdout);
-#   endif
-#endif
-}
+static const char * impls[] = {
+    "cuda",
+    "plain"
+};
 
-static void printCudaInfo()
-{
-    const int deviceCount = cv::gpu::getCudaEnabledDeviceCount();
-
-    printf("[----------]\n"); fflush(stdout);
-    printf("[ GPU INFO ] \tCUDA device count:: %d.\n", deviceCount); fflush(stdout);
-    printf("[----------]\n"); fflush(stdout);
-
-    for (int i = 0; i < deviceCount; ++i)
-    {
-        cv::gpu::DeviceInfo info(i);
-
-        printf("[----------]\n"); fflush(stdout);
-        printf("[ DEVICE   ] \t# %d %s.\n", i, info.name().c_str()); fflush(stdout);
-        printf("[          ] \tCompute capability: %d.%d\n", info.majorVersion(), info.minorVersion()); fflush(stdout);
-        printf("[          ] \tMulti Processor Count:  %d\n", info.multiProcessorCount()); fflush(stdout);
-        printf("[          ] \tTotal memory: %d Mb\n", static_cast<int>(static_cast<int>(info.totalMemory() / 1024.0) / 1024.0)); fflush(stdout);
-        printf("[          ] \tFree  memory: %d Mb\n", static_cast<int>(static_cast<int>(info.freeMemory()  / 1024.0) / 1024.0)); fflush(stdout);
-        if (!info.isCompatible())
-            printf("[ GPU INFO ] \tThis device is NOT compatible with current GPU module build\n");
-        printf("[----------]\n"); fflush(stdout);
-    }
-}
-
-int main(int argc, char* argv[])
-{
-    printOsInfo();
-    printCudaInfo();
-
-    perf::Regression::Init("nv_perf_test");
-    perf::TestBase::Init(argc, argv);
-    testing::InitGoogleTest(&argc, argv);
-
-    return RUN_ALL_TESTS();
-}
-
-#define DEF_PARAM_TEST(name, ...) typedef ::perf::TestBaseWithParam< std::tr1::tuple< __VA_ARGS__ > > name
-#define DEF_PARAM_TEST_1(name, param_type) typedef ::perf::TestBaseWithParam< param_type > name
+CV_PERF_TEST_MAIN_WITH_IMPLS(gpu_perf4au, impls, perf::printCudaInfo())
 
 //////////////////////////////////////////////////////////
 // HoughLinesP
@@ -86,7 +74,7 @@ PERF_TEST_P(Image, HoughLinesP, testing::Values(std::string("im1_1280x800.jpg"))
     const float rho = 1.f;
     const float theta = 1.f;
     const int threshold = 40;
-    const int minLineLenght = 20;
+    const int minLineLength = 20;
     const int maxLineGap = 5;
 
     cv::Mat image = cv::imread(fileName, cv::IMREAD_GRAYSCALE);
@@ -97,11 +85,11 @@ PERF_TEST_P(Image, HoughLinesP, testing::Values(std::string("im1_1280x800.jpg"))
         cv::gpu::GpuMat d_lines;
         cv::gpu::HoughLinesBuf d_buf;
 
-        cv::gpu::HoughLinesP(d_image, d_lines, d_buf, rho, theta, minLineLenght, maxLineGap);
+        cv::gpu::HoughLinesP(d_image, d_lines, d_buf, rho, theta, minLineLength, maxLineGap);
 
         TEST_CYCLE()
         {
-            cv::gpu::HoughLinesP(d_image, d_lines, d_buf, rho, theta, minLineLenght, maxLineGap);
+            cv::gpu::HoughLinesP(d_image, d_lines, d_buf, rho, theta, minLineLength, maxLineGap);
         }
     }
     else
@@ -110,11 +98,11 @@ PERF_TEST_P(Image, HoughLinesP, testing::Values(std::string("im1_1280x800.jpg"))
         cv::Canny(image, mask, 50, 100);
 
         std::vector<cv::Vec4i> lines;
-        cv::HoughLinesP(mask, lines, rho, theta, threshold, minLineLenght, maxLineGap);
+        cv::HoughLinesP(mask, lines, rho, theta, threshold, minLineLength, maxLineGap);
 
         TEST_CYCLE()
         {
-            cv::HoughLinesP(mask, lines, rho, theta, threshold, minLineLenght, maxLineGap);
+            cv::HoughLinesP(mask, lines, rho, theta, threshold, minLineLength, maxLineGap);
         }
     }
 

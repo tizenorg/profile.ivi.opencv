@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 '''
 Distance transform sample.
@@ -61,4 +61,3 @@ if __name__ == '__main__':
         if need_update:
             update()
     cv2.destroyAllWindows()
-

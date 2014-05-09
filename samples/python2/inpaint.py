@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 '''
 Inpainting sample.
@@ -42,4 +42,3 @@ if __name__ == '__main__':
             mark[:] = 0
             sketch.show()
     cv2.destroyAllWindows()
-

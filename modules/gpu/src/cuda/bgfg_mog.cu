@@ -28,7 +28,7 @@
 //     derived from this software without specific prior written permission.
 //
 // This software is provided by the copyright holders and contributors "as is" and
-// any express or bpied warranties, including, but not limited to, the bpied
+// any express or implied warranties, including, but not limited to, the implied
 // warranties of merchantability and fitness for a particular purpose are disclaimed.
 // In no event shall the Intel Corporation or contributors be liable for any direct,
 // indirect, incidental, special, exemplary, or consequential damages
@@ -489,7 +489,7 @@ namespace cv { namespace gpu { namespace device
             {
                 //need only weight if fit is found
                 float weight = alpha1 * gmm_weight(mode * frame.rows + y, x) + prune;
-
+                int swap_count = 0;
                 //fit not found yet
                 if (!fitsPDF)
                 {
@@ -540,6 +540,7 @@ namespace cv { namespace gpu { namespace device
                             if (weight < gmm_weight((i - 1) * frame.rows + y, x))
                                 break;
 
+                            swap_count++;
                             //swap one up
                             swap(gmm_weight, x, y, i - 1, frame.rows);
                             swap(gmm_variance, x, y, i - 1, frame.rows);
@@ -557,7 +558,7 @@ namespace cv { namespace gpu { namespace device
                     nmodes--;
                 }
 
-                gmm_weight(mode * frame.rows + y, x) = weight; //update weight by the calculated value
+                gmm_weight((mode - swap_count) * frame.rows + y, x) = weight; //update weight by the calculated value
                 totalWeight += weight;
             }
 

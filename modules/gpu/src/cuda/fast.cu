@@ -38,11 +38,6 @@
 // or tort (including negligence or otherwise) arising in any way out of
 // the use of this software, even if advised of the possibility of such damage.
 //
-// Copyright (c) 2010, Paul Furgale, Chi Hay Tong
-//
-// The original code was written by Paul Furgale and Chi Hay Tong
-// and later optimized and prepared for integration into OpenCV by Itseez.
-//
 //M*/
 
 #if !defined CUDA_DISABLER
@@ -323,9 +318,9 @@ namespace cv { namespace gpu { namespace device
         }
 
         ///////////////////////////////////////////////////////////////////////////
-        // nonmaxSupression
+        // nonmaxSuppression
 
-        __global__ void nonmaxSupression(const short2* kpLoc, int count, const PtrStepSzi scoreMat, short2* locFinal, float* responseFinal)
+        __global__ void nonmaxSuppression(const short2* kpLoc, int count, const PtrStepSzi scoreMat, short2* locFinal, float* responseFinal)
         {
             #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 110)
 
@@ -361,7 +356,7 @@ namespace cv { namespace gpu { namespace device
             #endif
         }
 
-        int nonmaxSupression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response)
+        int nonmaxSuppression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response)
         {
             void* counter_ptr;
             cudaSafeCall( cudaGetSymbolAddress(&counter_ptr, g_counter) );
@@ -373,7 +368,7 @@ namespace cv { namespace gpu { namespace device
 
             cudaSafeCall( cudaMemset(counter_ptr, 0, sizeof(unsigned int)) );
 
-            nonmaxSupression<<<grid, block>>>(kpLoc, count, score, loc, response);
+            nonmaxSuppression<<<grid, block>>>(kpLoc, count, score, loc, response);
             cudaSafeCall( cudaGetLastError() );
 
             cudaSafeCall( cudaDeviceSynchronize() );

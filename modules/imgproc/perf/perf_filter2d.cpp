@@ -8,7 +8,7 @@ using std::tr1::make_tuple;
 using std::tr1::get;
 
 
-CV_ENUM(BorderMode, BORDER_CONSTANT, BORDER_REPLICATE, BORDER_REFLECT_101);
+CV_ENUM(BorderMode, BORDER_CONSTANT, BORDER_REPLICATE, BORDER_REFLECT_101)
 
 typedef TestBaseWithParam< tr1::tuple<Size, int, BorderMode> > TestFilter2d;
 typedef TestBaseWithParam< tr1::tuple<String, int> > Image_KernelSize;
@@ -17,7 +17,7 @@ PERF_TEST_P( TestFilter2d, Filter2d,
              Combine(
                 Values( Size(320, 240), sz1080p ),
                 Values( 3, 5 ),
-                ValuesIn( BorderMode::all() )
+                BorderMode::all()
              )
 )
 {
@@ -72,5 +72,3 @@ PERF_TEST_P( Image_KernelSize, GaborFilter2d,
 
     SANITY_CHECK(filteredImage, 1e-3);
 }
-
-

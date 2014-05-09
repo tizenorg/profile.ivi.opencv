@@ -184,7 +184,7 @@ static void finalizeHdr(Mat& m)
 void Mat::create(int d, const int* _sizes, int _type)
 {
     int i;
-    CV_Assert(0 <= d && _sizes && d <= CV_MAX_DIM && _sizes);
+    CV_Assert(0 <= d && d <= CV_MAX_DIM && _sizes);
     _type = CV_MAT_TYPE(_type);
 
     if( data && (d == dims || (d == 1 && dims <= 2)) && _type == type() )
@@ -980,6 +980,11 @@ Mat _InputArray::getMat(int i) const
         return !v.empty() ? Mat(size(i), t, (void*)&v[0]) : Mat();
     }
 
+    if( k == OCL_MAT )
+    {
+        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
+    }
+
     CV_Assert( k == STD_VECTOR_MAT );
     //if( k == STD_VECTOR_MAT )
     {
@@ -1060,6 +1065,11 @@ void _InputArray::getMatVector(vector<Mat>& mv) const
             mv[i] = Mat(size(i), t, (void*)&v[0]);
         }
         return;
+    }
+
+    if( k == OCL_MAT )
+    {
+        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
     }
 
     CV_Assert( k == STD_VECTOR_MAT );
@@ -1189,6 +1199,11 @@ Size _InputArray::size(int i) const
         return tex->size();
     }
 
+    if( k == OCL_MAT )
+    {
+        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
+    }
+
     CV_Assert( k == GPU_MAT );
     //if( k == GPU_MAT )
     {
@@ -1302,6 +1317,11 @@ bool _InputArray::empty() const
 
     if( k == OPENGL_TEXTURE )
         return ((const ogl::Texture2D*)obj)->empty();
+
+    if( k == OCL_MAT )
+    {
+        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
+    }
 
     CV_Assert( k == GPU_MAT );
     //if( k == GPU_MAT )
@@ -1523,6 +1543,11 @@ void _OutputArray::create(int dims, const int* sizes, int mtype, int i, bool all
         return;
     }
 
+    if( k == OCL_MAT )
+    {
+        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
+    }
+
     if( k == NONE )
     {
         CV_Error(CV_StsNullPtr, "create() called for the missing output array" );
@@ -1546,10 +1571,10 @@ void _OutputArray::create(int dims, const int* sizes, int mtype, int i, bool all
                 int _type = CV_MAT_TYPE(flags);
                 for( size_t j = len0; j < len; j++ )
                 {
-                    if( v[i].type() == _type )
+                    if( v[j].type() == _type )
                         continue;
-                    CV_Assert( v[i].empty() );
-                    v[i].flags = (v[i].flags & ~CV_MAT_TYPE_MASK) | _type;
+                    CV_Assert( v[j].empty() );
+                    v[j].flags = (v[j].flags & ~CV_MAT_TYPE_MASK) | _type;
                 }
             }
             return;
@@ -1632,6 +1657,11 @@ void _OutputArray::release() const
     {
         ((vector<vector<uchar> >*)obj)->clear();
         return;
+    }
+
+    if( k == OCL_MAT )
+    {
+        CV_Error(CV_StsNotImplemented, "This method is not implemented for oclMat yet");
     }
 
     CV_Assert( k == STD_VECTOR_MAT );
@@ -2002,39 +2032,24 @@ void cv::transpose( InputArray _src, OutputArray _dst )
 }
 
 
+////////////////////////////////////// completeSymm /////////////////////////////////////////
+
 void cv::completeSymm( InputOutputArray _m, bool LtoR )
 {
     Mat m = _m.getMat();
-    CV_Assert( m.dims <= 2 );
+    size_t step = m.step, esz = m.elemSize();
+    CV_Assert( m.dims <= 2 && m.rows == m.cols );
 
-    int i, j, nrows = m.rows, type = m.type();
-    int j0 = 0, j1 = nrows;
-    CV_Assert( m.rows == m.cols );
+    int rows = m.rows;
+    int j0 = 0, j1 = rows;
 
-    if( type == CV_32FC1 || type == CV_32SC1 )
+    uchar* data = m.data;
+    for( int i = 0; i < rows; i++ )
     {
-        int* data = (int*)m.data;
-        size_t step = m.step/sizeof(data[0]);
-        for( i = 0; i < nrows; i++ )
-        {
-            if( !LtoR ) j1 = i; else j0 = i+1;
-            for( j = j0; j < j1; j++ )
-                data[i*step + j] = data[j*step + i];
-        }
+        if( !LtoR ) j1 = i; else j0 = i+1;
+        for( int j = j0; j < j1; j++ )
+            memcpy(data + (i*step + j*esz), data + (j*step + i*esz), esz);
     }
-    else if( type == CV_64FC1 )
-    {
-        double* data = (double*)m.data;
-        size_t step = m.step/sizeof(data[0]);
-        for( i = 0; i < nrows; i++ )
-        {
-            if( !LtoR ) j1 = i; else j0 = i+1;
-            for( j = j0; j < j1; j++ )
-                data[i*step + j] = data[j*step + i];
-        }
-    }
-    else
-        CV_Error( CV_StsUnsupportedFormat, "" );
 }
 
 

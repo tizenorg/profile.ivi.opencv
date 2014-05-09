@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 ''' An example of Laplacian Pyramid construction and merging.
 
@@ -62,5 +62,3 @@ if __name__ == '__main__':
 
         if cv2.waitKey(1) == 27:
             break
-
-

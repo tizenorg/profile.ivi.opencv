@@ -7,10 +7,11 @@
 //  copy or use the software.
 //
 //
-//                        Intel License Agreement
+//                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2000, Intel Corporation, all rights reserved.
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 // Third party copyrights are property of their respective owners.
 //
 // Redistribution and use in source and binary forms, with or without modification,
@@ -23,7 +24,7 @@
 //     this list of conditions and the following disclaimer in the documentation
 //     and/or other materials provided with the distribution.
 //
-//   * The name of Intel Corporation may not be used to endorse or promote products
+//   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
 //
 // This software is provided by the copyright holders and contributors "as is" and
@@ -42,6 +43,8 @@
 #include "test_precomp.hpp"
 
 #ifdef HAVE_CUDA
+
+using namespace cvtest;
 
 ////////////////////////////////////////////////////////
 // BilateralFilter
@@ -111,6 +114,7 @@ GPU_TEST_P(BruteForceNonLocalMeans, Regression)
 
     cv::Mat bgr  = readImage("denoising/lena_noised_gaussian_sigma=20_multi_0.png", cv::IMREAD_COLOR);
     ASSERT_FALSE(bgr.empty());
+    cv::resize(bgr, bgr, cv::Size(256, 256));
 
     cv::Mat gray;
     cv::cvtColor(bgr, gray, CV_BGR2GRAY);
@@ -127,6 +131,8 @@ GPU_TEST_P(BruteForceNonLocalMeans, Regression)
     cv::Mat bgr_gold  = readImage("denoising/nlm_denoised_lena_bgr.png", cv::IMREAD_COLOR);
     cv::Mat gray_gold  = readImage("denoising/nlm_denoised_lena_gray.png", cv::IMREAD_GRAYSCALE);
     ASSERT_FALSE(bgr_gold.empty() || gray_gold.empty());
+    cv::resize(bgr_gold, bgr_gold, cv::Size(256, 256));
+    cv::resize(gray_gold, gray_gold, cv::Size(256, 256));
 
     EXPECT_MAT_NEAR(bgr_gold, dbgr, 1e-4);
     EXPECT_MAT_NEAR(gray_gold, dgray, 1e-4);

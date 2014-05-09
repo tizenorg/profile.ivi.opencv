@@ -9,6 +9,12 @@ that are represented as vectors in a multidimensional space. All objects that im
 descriptor matchers inherit the
 :ocv:class:`DescriptorMatcher` interface.
 
+.. note::
+
+   * An example explaining keypoint matching can be found at opencv_source_code/samples/cpp/descriptor_extractor_matcher.cpp
+   * An example on descriptor matching evaluation can be found at opencv_source_code/samples/cpp/detector_descriptor_matcher_evaluation.cpp
+   * An example on one to many image matching can be found at opencv_source_code/samples/cpp/matching_to_many_images.cpp
+
 DMatch
 ------
 .. ocv:struct:: DMatch
@@ -217,7 +223,7 @@ For each query descriptor, finds the training descriptors not farther than the s
 
     :param compactResult: Parameter used when the mask (or masks) is not empty. If  ``compactResult``  is false, the  ``matches``  vector has the same size as  ``queryDescriptors``  rows. If  ``compactResult``  is true, the  ``matches``  vector does not contain matches for fully masked-out query descriptors.
 
-    :param maxDistance: Threshold for the distance between matched descriptors.
+    :param maxDistance: Threshold for the distance between matched descriptors. Distance means here metric distance (e.g. Hamming distance), not the distance between coordinates (which is measured in Pixels)!
 
 For each query descriptor, the methods find such training descriptors that the distance between the query descriptor and the training descriptor is equal or smaller than ``maxDistance``. Found matches are returned in the distance increasing order.
 
@@ -271,7 +277,7 @@ Brute-force matcher constructor.
 
     :param normType: One of ``NORM_L1``, ``NORM_L2``, ``NORM_HAMMING``, ``NORM_HAMMING2``. ``L1`` and ``L2`` norms are preferable choices for SIFT and SURF descriptors, ``NORM_HAMMING`` should be used with ORB, BRISK and BRIEF, ``NORM_HAMMING2`` should be used with ORB when ``WTA_K==3`` or ``4`` (see ORB::ORB constructor description).
 
-    :param crossCheck: If it is false, this is will be default BFMatcher behaviour when it finds the k nearest neighbors for each query descriptor. If ``crossCheck==true``, then the ``knnMatch()`` method with ``k=1`` will only return pairs ``(i,j)`` such that for ``i-th`` query descriptor the ``j-th`` descriptor in the matcher's collection is the nearest and vice versa, i.e. the ``BFMathcher`` will only return consistent pairs. Such technique usually produces best results with minimal number of outliers when there are enough matches. This is alternative to the ratio test, used by D. Lowe in SIFT paper.
+    :param crossCheck: If it is false, this is will be default BFMatcher behaviour when it finds the k nearest neighbors for each query descriptor. If ``crossCheck==true``, then the ``knnMatch()`` method with ``k=1`` will only return pairs ``(i,j)`` such that for ``i-th`` query descriptor the ``j-th`` descriptor in the matcher's collection is the nearest and vice versa, i.e. the ``BFMatcher`` will only return consistent pairs. Such technique usually produces best results with minimal number of outliers when there are enough matches. This is alternative to the ratio test, used by D. Lowe in SIFT paper.
 
 
 FlannBasedMatcher
@@ -299,4 +305,3 @@ Flann-based descriptor matcher. This matcher trains :ocv:class:`flann::Index_` o
     };
 
 ..
-

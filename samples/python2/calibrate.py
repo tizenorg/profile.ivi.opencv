@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 import numpy as np
 import cv2
@@ -57,4 +57,3 @@ if __name__ == '__main__':
     print "camera matrix:\n", camera_matrix
     print "distortion coefficients: ", dist_coefs.ravel()
     cv2.destroyAllWindows()
-

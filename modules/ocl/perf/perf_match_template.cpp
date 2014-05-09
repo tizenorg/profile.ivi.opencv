@@ -16,6 +16,7 @@
 //
 // @Authors
 //    Fangfang Bai, fangfang@multicorewareinc.com
+//    Jin Ma,       jin@multicorewareinc.com
 //
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -25,7 +26,7 @@
 //
 //   * Redistribution's in binary form must reproduce the above copyright notice,
 //     this list of conditions and the following disclaimer in the documentation
-//     and/or other oclMaterials provided with the distribution.
+//     and/or other materials provided with the distribution.
 //
 //   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
@@ -43,190 +44,136 @@
 //
 //M*/
 
-#include "precomp.hpp"
-#include <iomanip>
-#ifdef HAVE_OPENCL
-using namespace cv;
-using namespace cv::ocl;
-using namespace cvtest;
-using namespace testing;
-using namespace std;
+#include "perf_precomp.hpp"
 
-#ifndef MWC_TEST_UTILITY
-#define MWC_TEST_UTILITY
-//////// Utility
-#ifndef DIFFERENT_SIZES
-#else
-#undef DIFFERENT_SIZES
-#endif
-#define DIFFERENT_SIZES testing::Values(cv::Size(256, 256), cv::Size(3000, 3000))
+using namespace perf;
+using std::tr1::tuple;
+using std::tr1::get;
 
-// Param class
-#ifndef IMPLEMENT_PARAM_CLASS
-#define IMPLEMENT_PARAM_CLASS(name, type) \
-class name \
-{ \
-public: \
-    name ( type arg = type ()) : val_(arg) {} \
-    operator type () const {return val_;} \
-private: \
-    type val_; \
-}; \
-    inline void PrintTo( name param, std::ostream* os) \
-{ \
-    *os << #name <<  "(" << testing::PrintToString(static_cast< type >(param)) << ")"; \
+/////////// matchTemplate ////////////////////////
+
+typedef Size_MatType CV_TM_CCORRFixture;
+
+OCL_PERF_TEST_P(CV_TM_CCORRFixture, matchTemplate,
+                ::testing::Combine(::testing::Values(Size(1000, 1000), Size(2000, 2000)),
+                               OCL_PERF_ENUM(CV_32FC1, CV_32FC4)))
+{
+    const Size_MatType_t params = GetParam();
+    const Size srcSize = get<0>(params), templSize(5, 5);
+    const int type = get<1>(params);
+
+    Mat src(srcSize, type), templ(templSize, type);
+    const Size dstSize(src.cols - templ.cols + 1, src.rows - templ.rows + 1);
+    Mat dst(dstSize, CV_32F);
+    randu(src, 0.0f, 1.0f);
+    randu(templ, 0.0f, 1.0f);
+    declare.in(src, templ).out(dst);
+
+    if (RUN_OCL_IMPL)
+    {
+        ocl::oclMat oclSrc(src), oclTempl(templ), oclDst(dstSize, CV_32F);
+
+        OCL_TEST_CYCLE() cv::ocl::matchTemplate(oclSrc, oclTempl, oclDst, CV_TM_CCORR);
+
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst, 1e-4);
+    }
+    else if (RUN_PLAIN_IMPL)
+    {
+        TEST_CYCLE() cv::matchTemplate(src, templ, dst, CV_TM_CCORR);
+
+        SANITY_CHECK(dst, 1e-4);
+    }
+    else
+        OCL_PERF_ELSE
 }
 
-IMPLEMENT_PARAM_CLASS(Channels, int)
-#endif // IMPLEMENT_PARAM_CLASS
-#endif // MWC_TEST_UTILITY
+typedef TestBaseWithParam<Size> CV_TM_CCORR_NORMEDFixture;
 
-////////////////////////////////////////////////////////////////////////////////
-// MatchTemplate
-#define ALL_TEMPLATE_METHODS testing::Values(TemplateMethod(cv::TM_SQDIFF), TemplateMethod(cv::TM_CCORR), TemplateMethod(cv::TM_CCOEFF), TemplateMethod(cv::TM_SQDIFF_NORMED), TemplateMethod(cv::TM_CCORR_NORMED), TemplateMethod(cv::TM_CCOEFF_NORMED))
-
-IMPLEMENT_PARAM_CLASS(TemplateSize, cv::Size);
-
-const char *TEMPLATE_METHOD_NAMES[6] = {"TM_SQDIFF", "TM_SQDIFF_NORMED", "TM_CCORR", "TM_CCORR_NORMED", "TM_CCOEFF", "TM_CCOEFF_NORMED"};
-
-PARAM_TEST_CASE(MatchTemplate, cv::Size, TemplateSize, Channels, TemplateMethod)
+OCL_PERF_TEST_P(CV_TM_CCORR_NORMEDFixture, matchTemplate,
+                ::testing::Values(Size(1000, 1000), Size(2000, 2000), Size(4000, 4000)))
 {
-    cv::Size size;
-    cv::Size templ_size;
-    int cn;
-    int method;
-    //vector<cv::ocl::Info> oclinfo;
+    const Size srcSize = GetParam(), templSize(5, 5);
 
-    virtual void SetUp()
+    Mat src(srcSize, CV_8UC1), templ(templSize, CV_8UC1), dst;
+    const Size dstSize(src.cols - templ.cols + 1, src.rows - templ.rows + 1);
+    dst.create(dstSize, CV_8UC1);
+    declare.in(src, templ, WARMUP_RNG).out(dst);
+
+    if (RUN_OCL_IMPL)
     {
-        size = GET_PARAM(0);
-        templ_size = GET_PARAM(1);
-        cn = GET_PARAM(2);
-        method = GET_PARAM(3);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
+        ocl::oclMat oclSrc(src), oclTempl(templ), oclDst(dstSize, CV_8UC1);
+
+        OCL_TEST_CYCLE() cv::ocl::matchTemplate(oclSrc, oclTempl, oclDst, CV_TM_CCORR_NORMED);
+
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst, 2e-2);
     }
-};
-struct MatchTemplate8U : MatchTemplate {};
-
-TEST_P(MatchTemplate8U, Performance)
-{
-    std::cout << "Method: " << TEMPLATE_METHOD_NAMES[method] << std::endl;
-    std::cout << "Image Size: (" << size.width << ", " << size.height << ")" << std::endl;
-    std::cout << "Template Size: (" << templ_size.width << ", " << templ_size.height << ")" << std::endl;
-    std::cout << "Channels: " << cn << std::endl;
-
-    cv::Mat image = randomMat(size, CV_MAKETYPE(CV_8U, cn));
-    cv::Mat templ = randomMat(templ_size, CV_MAKETYPE(CV_8U, cn));
-    cv::Mat dst_gold;
-    cv::ocl::oclMat dst;
-
-
-
-
-
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-
-    double t1 = 0;
-    double t2 = 0;
-    for(int j = 0; j < LOOP_TIMES + 1; j ++)
+    else if (RUN_PLAIN_IMPL)
     {
+        TEST_CYCLE() cv::matchTemplate(src, templ, dst, CV_TM_CCORR_NORMED);
 
-        t1 = (double)cvGetTickCount();//gpu start1
-
-        cv::ocl::oclMat ocl_image = cv::ocl::oclMat(image);//upload
-        cv::ocl::oclMat ocl_templ = cv::ocl::oclMat(templ);//upload
-
-        t2 = (double)cvGetTickCount(); //kernel
-        cv::ocl::matchTemplate(ocl_image, ocl_templ, dst, method);
-        t2 = (double)cvGetTickCount() - t2;//kernel
-
-        cv::Mat cpu_dst;
-        dst.download (cpu_dst);//download
-
-        t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-        if(j == 0)
-            continue;
-
-        totalgputick = t1 + totalgputick;
-        totalgputick_kernel = t2 + totalgputick_kernel;
-
+        SANITY_CHECK(dst, 2e-2);
     }
-
-    cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-
-
+    else
+        OCL_PERF_ELSE
 }
 
+CV_ENUM(MethodType, TM_SQDIFF, TM_SQDIFF_NORMED, TM_CCORR, TM_CCORR_NORMED, TM_CCOEFF, TM_CCOEFF_NORMED)
 
-struct MatchTemplate32F : MatchTemplate {};
-TEST_P(MatchTemplate32F, Performance)
+typedef std::tr1::tuple<Size, Size, MethodType> ImgSize_TmplSize_Method_t;
+typedef TestBaseWithParam<ImgSize_TmplSize_Method_t> ImgSize_TmplSize_Method;
+
+OCL_PERF_TEST_P(ImgSize_TmplSize_Method, MatchTemplate,
+        ::testing::Combine(
+            testing::Values(szSmall128, cv::Size(320, 240),
+                            cv::Size(640, 480), cv::Size(800, 600),
+                            cv::Size(1024, 768), cv::Size(1280, 1024)),
+            testing::Values(cv::Size(12, 12), cv::Size(28, 9),
+                            cv::Size(8, 30), cv::Size(16, 16)),
+            MethodType::all()
+            )
+        )
 {
-    std::cout << "Method: " << TEMPLATE_METHOD_NAMES[method] << std::endl;
-    std::cout << "Image Size: (" << size.width << ", " << size.height << ")" << std::endl;
-    std::cout << "Template Size: (" << templ_size.width << ", " << templ_size.height << ")" << std::endl;
-    std::cout << "Channels: " << cn << std::endl;
-    cv::Mat image = randomMat(size, CV_MAKETYPE(CV_32F, cn));
-    cv::Mat templ = randomMat(templ_size, CV_MAKETYPE(CV_32F, cn));
+    Size imgSz = get<0>(GetParam());
+    Size tmplSz = get<1>(GetParam());
+    int method = get<2>(GetParam());
 
-    cv::Mat dst_gold;
-    cv::ocl::oclMat dst;
+    Mat img(imgSz, CV_8UC1);
+    Mat tmpl(tmplSz, CV_8UC1);
+    Mat result(imgSz - tmplSz + Size(1, 1), CV_32F);
 
+    bool isNormed =
+        method == TM_CCORR_NORMED ||
+        method == TM_SQDIFF_NORMED ||
+        method == TM_CCOEFF_NORMED;
 
+    declare.in(img, tmpl, WARMUP_RNG).out(result).time(30);
 
-
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-
-    double t1 = 0;
-    double t2 = 0;
-    for(int j = 0; j < LOOP_TIMES; j ++)
+    if (RUN_OCL_IMPL)
     {
+        ocl::oclMat oclImg(img), oclTmpl(tmpl), oclResult(result.size(), CV_32F);
 
-        t1 = (double)cvGetTickCount();//gpu start1
+        OCL_TEST_CYCLE() matchTemplate(oclImg, oclTmpl, oclResult, method);
 
-        cv::ocl::oclMat ocl_image = cv::ocl::oclMat(image);//upload
-        cv::ocl::oclMat ocl_templ = cv::ocl::oclMat(templ);//upload
-
-        t2 = (double)cvGetTickCount(); //kernel
-        cv::ocl::matchTemplate(ocl_image, ocl_templ, dst, method);
-        t2 = (double)cvGetTickCount() - t2;//kernel
-
-        cv::Mat cpu_dst;
-        dst.download (cpu_dst);//download
-
-        t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-        totalgputick = t1 + totalgputick;
-
-        totalgputick_kernel = t2 + totalgputick_kernel;
-
+        oclResult.download(result);
     }
+    else if (RUN_PLAIN_IMPL)
+    {
+        OCL_TEST_CYCLE() matchTemplate(img, tmpl, result, method);
+    }
+    else
+        OCL_PERF_ELSE
 
-    cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
+    double eps = isNormed ? 3e-2
+        : 255 * 255 * tmpl.total() * 1e-4;
 
-
-
+    if (method == TM_SQDIFF_NORMED)
+        SANITY_CHECK_NOTHING();
+    else if (isNormed)
+        SANITY_CHECK(result, eps, ERROR_RELATIVE);
+    else
+        SANITY_CHECK(result, eps);
 }
-
-
-INSTANTIATE_TEST_CASE_P(GPU_ImgProc, MatchTemplate8U,
-                        testing::Combine(
-                            testing::Values(cv::Size(1280, 1024), cv::Size(MWIDTH, MHEIGHT), cv::Size(1800, 1500)),
-                            testing::Values(TemplateSize(cv::Size(5, 5)), TemplateSize(cv::Size(16, 16))/*, TemplateSize(cv::Size(30, 30))*/),
-                            testing::Values(Channels(1), Channels(4)/*, Channels(3)*/),
-                            ALL_TEMPLATE_METHODS
-                        )
-                       );
-
-INSTANTIATE_TEST_CASE_P(GPU_ImgProc, MatchTemplate32F, testing::Combine(
-                            testing::Values(cv::Size(1280, 1024), cv::Size(MWIDTH, MHEIGHT), cv::Size(1800, 1500)),
-                            testing::Values(TemplateSize(cv::Size(5, 5)), TemplateSize(cv::Size(16, 16))/*, TemplateSize(cv::Size(30, 30))*/),
-                            testing::Values(Channels(1), Channels(4) /*, Channels(3)*/),
-                            testing::Values(TemplateMethod(cv::TM_SQDIFF), TemplateMethod(cv::TM_CCORR))));
-
-#endif //HAVE_OPENCL

@@ -96,6 +96,7 @@ void cv::gpu::Canny(const GpuMat&, const GpuMat&, GpuMat&, double, double, bool)
 void cv::gpu::Canny(const GpuMat&, const GpuMat&, CannyBuf&, GpuMat&, double, double, bool) { throw_nogpu(); }
 void cv::gpu::CannyBuf::create(const Size&, int) { throw_nogpu(); }
 void cv::gpu::CannyBuf::release() { throw_nogpu(); }
+cv::Ptr<cv::gpu::CLAHE> cv::gpu::createCLAHE(double, cv::Size) { throw_nogpu(); return cv::Ptr<cv::gpu::CLAHE>(); }
 
 #else /* !defined (HAVE_CUDA) */
 
@@ -243,6 +244,10 @@ void cv::gpu::reprojectImageTo3D(const GpuMat& disp, GpuMat& xyz, const Mat& Q, 
 ////////////////////////////////////////////////////////////////////////
 // copyMakeBorder
 
+// Disable NPP for this file
+//#define USE_NPP
+#undef USE_NPP
+
 namespace cv { namespace gpu { namespace device
 {
     namespace imgproc
@@ -278,6 +283,7 @@ void cv::gpu::copyMakeBorder(const GpuMat& src, GpuMat& dst, int top, int bottom
 
     cudaStream_t stream = StreamAccessor::getStream(s);
 
+#ifdef USE_NPP
     if (borderType == BORDER_CONSTANT && (src.type() == CV_8UC1 || src.type() == CV_8UC4 || src.type() == CV_32SC1 || src.type() == CV_32FC1))
     {
         NppiSize srcsz;
@@ -327,6 +333,7 @@ void cv::gpu::copyMakeBorder(const GpuMat& src, GpuMat& dst, int top, int bottom
             cudaSafeCall( cudaDeviceSynchronize() );
     }
     else
+#endif
     {
         typedef void (*caller_t)(const PtrStepSzb& src, const PtrStepSzb& dst, int top, int left, int borderType, const Scalar& value, cudaStream_t stream);
         static const caller_t callers[6][4] =
@@ -888,6 +895,21 @@ void cv::gpu::histEven(const GpuMat& src, GpuMat& hist, int histSize, int lowerL
     histEven(src, hist, buf, histSize, lowerLevel, upperLevel, stream);
 }
 
+namespace hist
+{
+    void histEven8u(PtrStepSzb src, int* hist, int binCount, int lowerLevel, int upperLevel, cudaStream_t stream);
+}
+
+namespace
+{
+    void histEven8u(const GpuMat& src, GpuMat& hist, int histSize, int lowerLevel, int upperLevel, cudaStream_t stream)
+    {
+        hist.create(1, histSize, CV_32S);
+        cudaSafeCall( cudaMemsetAsync(hist.data, 0, histSize * sizeof(int), stream) );
+        hist::histEven8u(src, hist.ptr<int>(), histSize, lowerLevel, upperLevel, stream);
+    }
+}
+
 void cv::gpu::histEven(const GpuMat& src, GpuMat& hist, GpuMat& buf, int histSize, int lowerLevel, int upperLevel, Stream& stream)
 {
     CV_Assert(src.type() == CV_8UC1 || src.type() == CV_16UC1 || src.type() == CV_16SC1 );
@@ -900,6 +922,12 @@ void cv::gpu::histEven(const GpuMat& src, GpuMat& hist, GpuMat& buf, int histSiz
         NppHistogramEvenC1<CV_16U, nppiHistogramEven_16u_C1R, nppiHistogramEvenGetBufferSize_16u_C1R>::hist,
         NppHistogramEvenC1<CV_16S, nppiHistogramEven_16s_C1R, nppiHistogramEvenGetBufferSize_16s_C1R>::hist
     };
+
+    if (src.depth() == CV_8U && deviceSupports(FEATURE_SET_COMPUTE_30))
+    {
+        histEven8u(src, hist, histSize, lowerLevel, upperLevel, StreamAccessor::getStream(stream));
+        return;
+    }
 
     hist_callers[src.depth()](src, hist, buf, histSize, lowerLevel, upperLevel, StreamAccessor::getStream(stream));
 }
@@ -1135,6 +1163,8 @@ void cv::gpu::cornerMinEigenVal(const GpuMat& src, GpuMat& dst, GpuMat& Dx, GpuM
 //////////////////////////////////////////////////////////////////////////////
 // mulSpectrums
 
+#ifdef HAVE_CUFFT
+
 namespace cv { namespace gpu { namespace device
 {
     namespace imgproc
@@ -1145,9 +1175,20 @@ namespace cv { namespace gpu { namespace device
     }
 }}}
 
+#endif
+
 void cv::gpu::mulSpectrums(const GpuMat& a, const GpuMat& b, GpuMat& c, int flags, bool conjB, Stream& stream)
 {
-    (void)flags;
+#ifndef HAVE_CUFFT
+    (void) a;
+    (void) b;
+    (void) c;
+    (void) flags;
+    (void) conjB;
+    (void) stream;
+    throw_nogpu();
+#else
+    (void) flags;
     using namespace ::cv::gpu::device::imgproc;
 
     typedef void (*Caller)(const PtrStep<cufftComplex>, const PtrStep<cufftComplex>, PtrStepSz<cufftComplex>, cudaStream_t stream);
@@ -1161,10 +1202,13 @@ void cv::gpu::mulSpectrums(const GpuMat& a, const GpuMat& b, GpuMat& c, int flag
 
     Caller caller = callers[(int)conjB];
     caller(a, b, c, StreamAccessor::getStream(stream));
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
 // mulAndScaleSpectrums
+
+#ifdef HAVE_CUFFT
 
 namespace cv { namespace gpu { namespace device
 {
@@ -1176,8 +1220,20 @@ namespace cv { namespace gpu { namespace device
     }
 }}}
 
+#endif
+
 void cv::gpu::mulAndScaleSpectrums(const GpuMat& a, const GpuMat& b, GpuMat& c, int flags, float scale, bool conjB, Stream& stream)
 {
+#ifndef HAVE_CUFFT
+    (void) a;
+    (void) b;
+    (void) c;
+    (void) flags;
+    (void) scale;
+    (void) conjB;
+    (void) stream;
+    throw_nogpu();
+#else
     (void)flags;
     using namespace ::cv::gpu::device::imgproc;
 
@@ -1191,6 +1247,7 @@ void cv::gpu::mulAndScaleSpectrums(const GpuMat& a, const GpuMat& b, GpuMat& c, 
 
     Caller caller = callers[(int)conjB];
     caller(a, b, scale, c, StreamAccessor::getStream(stream));
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1434,6 +1491,8 @@ void cv::gpu::convolve(const GpuMat& image, const GpuMat& templ, GpuMat& result,
 
 void cv::gpu::CannyBuf::create(const Size& image_size, int apperture_size)
 {
+    CV_Assert(image_size.width < std::numeric_limits<short>::max() && image_size.height < std::numeric_limits<short>::max());
+
     if (apperture_size > 0)
     {
         ensureSizeIsEnough(image_size, CV_32SC1, dx);
@@ -1449,8 +1508,8 @@ void cv::gpu::CannyBuf::create(const Size& image_size, int apperture_size)
     ensureSizeIsEnough(image_size, CV_32FC1, mag);
     ensureSizeIsEnough(image_size, CV_32SC1, map);
 
-    ensureSizeIsEnough(1, image_size.area(), CV_16UC2, st1);
-    ensureSizeIsEnough(1, image_size.area(), CV_16UC2, st2);
+    ensureSizeIsEnough(1, image_size.area(), CV_16SC2, st1);
+    ensureSizeIsEnough(1, image_size.area(), CV_16SC2, st2);
 }
 
 void cv::gpu::CannyBuf::release()
@@ -1470,9 +1529,9 @@ namespace canny
 
     void calcMap(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, PtrStepSzi map, float low_thresh, float high_thresh);
 
-    void edgesHysteresisLocal(PtrStepSzi map, ushort2* st1);
+    void edgesHysteresisLocal(PtrStepSzi map, short2* st1);
 
-    void edgesHysteresisGlobal(PtrStepSzi map, ushort2* st1, ushort2* st2);
+    void edgesHysteresisGlobal(PtrStepSzi map, short2* st1, short2* st2);
 
     void getEdges(PtrStepSzi map, PtrStepSzb dst);
 }
@@ -1486,9 +1545,9 @@ namespace
         buf.map.setTo(Scalar::all(0));
         calcMap(dx, dy, buf.mag, buf.map, low_thresh, high_thresh);
 
-        edgesHysteresisLocal(buf.map, buf.st1.ptr<ushort2>());
+        edgesHysteresisLocal(buf.map, buf.st1.ptr<short2>());
 
-        edgesHysteresisGlobal(buf.map, buf.st1.ptr<ushort2>(), buf.st2.ptr<ushort2>());
+        edgesHysteresisGlobal(buf.map, buf.st1.ptr<short2>(), buf.st2.ptr<short2>());
 
         getEdges(buf.map, dst);
     }
@@ -1557,6 +1616,138 @@ void cv::gpu::Canny(const GpuMat& dx, const GpuMat& dy, CannyBuf& buf, GpuMat& d
     calcMagnitude(dx, dy, buf.mag, L2gradient);
 
     CannyCaller(dx, dy, buf, dst, static_cast<float>(low_thresh), static_cast<float>(high_thresh));
+}
+
+////////////////////////////////////////////////////////////////////////
+// CLAHE
+
+namespace clahe
+{
+    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, cudaStream_t stream);
+    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, cudaStream_t stream);
+}
+
+namespace
+{
+    class CLAHE_Impl : public cv::gpu::CLAHE
+    {
+    public:
+        CLAHE_Impl(double clipLimit = 40.0, int tilesX = 8, int tilesY = 8);
+
+        cv::AlgorithmInfo* info() const;
+
+        void apply(cv::InputArray src, cv::OutputArray dst);
+        void apply(InputArray src, OutputArray dst, Stream& stream);
+
+        void setClipLimit(double clipLimit);
+        double getClipLimit() const;
+
+        void setTilesGridSize(cv::Size tileGridSize);
+        cv::Size getTilesGridSize() const;
+
+        void collectGarbage();
+
+    private:
+        double clipLimit_;
+        int tilesX_;
+        int tilesY_;
+
+        GpuMat srcExt_;
+        GpuMat lut_;
+    };
+
+    CLAHE_Impl::CLAHE_Impl(double clipLimit, int tilesX, int tilesY) :
+        clipLimit_(clipLimit), tilesX_(tilesX), tilesY_(tilesY)
+    {
+    }
+
+    CV_INIT_ALGORITHM(CLAHE_Impl, "CLAHE_GPU",
+        obj.info()->addParam(obj, "clipLimit", obj.clipLimit_);
+        obj.info()->addParam(obj, "tilesX", obj.tilesX_);
+        obj.info()->addParam(obj, "tilesY", obj.tilesY_))
+
+    void CLAHE_Impl::apply(cv::InputArray _src, cv::OutputArray _dst)
+    {
+        apply(_src, _dst, Stream::Null());
+    }
+
+    void CLAHE_Impl::apply(InputArray _src, OutputArray _dst, Stream& s)
+    {
+        GpuMat src = _src.getGpuMat();
+
+        CV_Assert( src.type() == CV_8UC1 );
+
+        _dst.create( src.size(), src.type() );
+        GpuMat dst = _dst.getGpuMat();
+
+        const int histSize = 256;
+
+        ensureSizeIsEnough(tilesX_ * tilesY_, histSize, CV_8UC1, lut_);
+
+        cudaStream_t stream = StreamAccessor::getStream(s);
+
+        cv::Size tileSize;
+        GpuMat srcForLut;
+
+        if (src.cols % tilesX_ == 0 && src.rows % tilesY_ == 0)
+        {
+            tileSize = cv::Size(src.cols / tilesX_, src.rows / tilesY_);
+            srcForLut = src;
+        }
+        else
+        {
+            cv::gpu::copyMakeBorder(src, srcExt_, 0, tilesY_ - (src.rows % tilesY_), 0, tilesX_ - (src.cols % tilesX_), cv::BORDER_REFLECT_101, cv::Scalar(), s);
+
+            tileSize = cv::Size(srcExt_.cols / tilesX_, srcExt_.rows / tilesY_);
+            srcForLut = srcExt_;
+        }
+
+        const int tileSizeTotal = tileSize.area();
+        const float lutScale = static_cast<float>(histSize - 1) / tileSizeTotal;
+
+        int clipLimit = 0;
+        if (clipLimit_ > 0.0)
+        {
+            clipLimit = static_cast<int>(clipLimit_ * tileSizeTotal / histSize);
+            clipLimit = std::max(clipLimit, 1);
+        }
+
+        clahe::calcLut(srcForLut, lut_, tilesX_, tilesY_, make_int2(tileSize.width, tileSize.height), clipLimit, lutScale, stream);
+
+        clahe::transform(src, dst, lut_, tilesX_, tilesY_, make_int2(tileSize.width, tileSize.height), stream);
+    }
+
+    void CLAHE_Impl::setClipLimit(double clipLimit)
+    {
+        clipLimit_ = clipLimit;
+    }
+
+    double CLAHE_Impl::getClipLimit() const
+    {
+        return clipLimit_;
+    }
+
+    void CLAHE_Impl::setTilesGridSize(cv::Size tileGridSize)
+    {
+        tilesX_ = tileGridSize.width;
+        tilesY_ = tileGridSize.height;
+    }
+
+    cv::Size CLAHE_Impl::getTilesGridSize() const
+    {
+        return cv::Size(tilesX_, tilesY_);
+    }
+
+    void CLAHE_Impl::collectGarbage()
+    {
+        srcExt_.release();
+        lut_.release();
+    }
+}
+
+cv::Ptr<cv::gpu::CLAHE> cv::gpu::createCLAHE(double clipLimit, cv::Size tileGridSize)
+{
+    return new CLAHE_Impl(clipLimit, tileGridSize.width, tileGridSize.height);
 }
 
 #endif /* !defined (HAVE_CUDA) */

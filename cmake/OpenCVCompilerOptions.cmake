@@ -47,6 +47,9 @@ macro(add_extra_compiler_option option)
   endif()
 endmacro()
 
+# OpenCV fails some tests when 'char' is 'unsigned' by default
+add_extra_compiler_option(-fsigned-char)
+
 if(MINGW)
   # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=40838
   # here we are trying to workaround the problem
@@ -127,6 +130,12 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   if(ENABLE_SSE2)
     add_extra_compiler_option(-msse2)
   endif()
+  if (ENABLE_NEON)
+    add_extra_compiler_option("-mfpu=neon")
+  endif()
+  if (ENABLE_VFPV3 AND NOT ENABLE_NEON)
+    add_extra_compiler_option("-mfpu=vfpv3")
+  endif()
 
   # SSE3 and further should be disabled under MingW because it generates compiler errors
   if(NOT MINGW)
@@ -178,11 +187,13 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     add_extra_compiler_option(-ffunction-sections)
   endif()
 
+  if(ENABLE_COVERAGE)
+    set(OPENCV_EXTRA_C_FLAGS "${OPENCV_EXTRA_C_FLAGS} --coverage")
+    set(OPENCV_EXTRA_CXX_FLAGS "${OPENCV_EXTRA_CXX_FLAGS} --coverage")
+  endif()
+
   set(OPENCV_EXTRA_FLAGS_RELEASE "${OPENCV_EXTRA_FLAGS_RELEASE} -DNDEBUG")
   set(OPENCV_EXTRA_FLAGS_DEBUG "${OPENCV_EXTRA_FLAGS_DEBUG} -O0 -DDEBUG -D_DEBUG")
-  if(BUILD_WITH_DEBUG_INFO)
-    set(OPENCV_EXTRA_FLAGS_DEBUG "${OPENCV_EXTRA_FLAGS_DEBUG} -ggdb3")
-  endif()
 endif()
 
 if(MSVC)
@@ -235,6 +246,10 @@ if(MSVC)
     if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND ENABLE_SSE2)
       set(OPENCV_EXTRA_FLAGS "${OPENCV_EXTRA_FLAGS} /fp:fast") # !! important - be on the same wave with x64 compilers
     endif()
+  endif()
+
+  if(OPENCV_WARNINGS_ARE_ERRORS)
+    set(OPENCV_EXTRA_FLAGS "${OPENCV_EXTRA_FLAGS} /WX")
   endif()
 endif()
 

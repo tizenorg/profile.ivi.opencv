@@ -1,3 +1,8 @@
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+// eliminating duplicated round() declaration
+#define HAVE_ROUND
+#endif
+
 #include <Python.h>
 
 #if !PYTHON_USE_NUMPY
@@ -6,6 +11,7 @@
 
 #define MODULESTR "cv2"
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "numpy/ndarrayobject.h"
 
 #include "opencv2/core/core.hpp"
@@ -123,6 +129,7 @@ typedef Ptr<FeatureDetector> Ptr_FeatureDetector;
 typedef Ptr<DescriptorExtractor> Ptr_DescriptorExtractor;
 typedef Ptr<Feature2D> Ptr_Feature2D;
 typedef Ptr<DescriptorMatcher> Ptr_DescriptorMatcher;
+typedef Ptr<CLAHE> Ptr_CLAHE;
 
 typedef SimpleBlobDetector::Params SimpleBlobDetector_Params;
 
@@ -193,10 +200,10 @@ public:
         if(!o)
             CV_Error_(CV_StsError, ("The numpy array of typenum=%d, ndims=%d can not be created", typenum, dims));
         refcount = refcountFromPyObject(o);
-        npy_intp* _strides = PyArray_STRIDES(o);
+        npy_intp* _strides = PyArray_STRIDES((PyArrayObject*) o);
         for( i = 0; i < dims - (cn > 1); i++ )
             step[i] = (size_t)_strides[i];
-        datastart = data = (uchar*)PyArray_DATA(o);
+        datastart = data = (uchar*)PyArray_DATA((PyArrayObject*) o);
     }
 
     void deallocate(int* refcount, uchar*, uchar*)
@@ -263,8 +270,10 @@ static int pyopencv_to(const PyObject* o, Mat& m, const ArgInfo info, bool allow
         return false;
     }
 
+    PyArrayObject* oarr = (PyArrayObject*) o;
+
     bool needcopy = false, needcast = false;
-    int typenum = PyArray_TYPE(o), new_typenum = typenum;
+    int typenum = PyArray_TYPE(oarr), new_typenum = typenum;
     int type = typenum == NPY_UBYTE ? CV_8U :
                typenum == NPY_BYTE ? CV_8S :
                typenum == NPY_USHORT ? CV_16U :
@@ -289,7 +298,7 @@ static int pyopencv_to(const PyObject* o, Mat& m, const ArgInfo info, bool allow
         }
     }
 
-    int ndims = PyArray_NDIM(o);
+    int ndims = PyArray_NDIM(oarr);
     if(ndims >= CV_MAX_DIM)
     {
         failmsg("%s dimensionality (=%d) is too high", info.name, ndims);
@@ -298,8 +307,8 @@ static int pyopencv_to(const PyObject* o, Mat& m, const ArgInfo info, bool allow
 
     int size[CV_MAX_DIM+1];
     size_t step[CV_MAX_DIM+1], elemsize = CV_ELEM_SIZE1(type);
-    const npy_intp* _sizes = PyArray_DIMS(o);
-    const npy_intp* _strides = PyArray_STRIDES(o);
+    const npy_intp* _sizes = PyArray_DIMS(oarr);
+    const npy_intp* _strides = PyArray_STRIDES(oarr);
     bool ismultichannel = ndims == 3 && _sizes[2] <= CV_CN_MAX;
 
     for( int i = ndims-1; i >= 0 && !needcopy; i-- )
@@ -323,11 +332,17 @@ static int pyopencv_to(const PyObject* o, Mat& m, const ArgInfo info, bool allow
             failmsg("Layout of the output array %s is incompatible with cv::Mat (step[ndims-1] != elemsize or step[1] != elemsize*nchannels)", info.name);
             return false;
         }
-        if( needcast )
-            o = (PyObject*)PyArray_Cast((PyArrayObject*)o, new_typenum);
-        else
-            o = (PyObject*)PyArray_GETCONTIGUOUS((PyArrayObject*)o);
-        _strides = PyArray_STRIDES(o);
+
+        if( needcast ) {
+            o = PyArray_Cast(oarr, new_typenum);
+            oarr = (PyArrayObject*) o;
+        }
+        else {
+            oarr = PyArray_GETCONTIGUOUS(oarr);
+            o = (PyObject*) oarr;
+        }
+
+        _strides = PyArray_STRIDES(oarr);
     }
 
     for(int i = 0; i < ndims; i++)
@@ -355,7 +370,7 @@ static int pyopencv_to(const PyObject* o, Mat& m, const ArgInfo info, bool allow
         return false;
     }
 
-    m = Mat(ndims, size, type, PyArray_DATA(o), step);
+    m = Mat(ndims, size, type, PyArray_DATA(oarr), step);
 
     if( m.data )
     {
@@ -379,7 +394,7 @@ static PyObject* pyopencv_from(const Mat& m)
     if(!p->refcount || p->allocator != &g_numpyAllocator)
     {
         temp.allocator = &g_numpyAllocator;
-        m.copyTo(temp);
+        ERRWRAP2(m.copyTo(temp));
         p = &temp;
     }
     p->addref();
@@ -510,7 +525,7 @@ static bool pyopencv_to(PyObject* obj, double& value, const char* name = "<unkno
     (void)name;
     if(!obj || obj == Py_None)
         return true;
-    if(PyInt_CheckExact(obj))
+    if(!!PyInt_CheckExact(obj))
         value = (double)PyInt_AS_LONG(obj);
     else
         value = PyFloat_AsDouble(obj);
@@ -527,7 +542,7 @@ static bool pyopencv_to(PyObject* obj, float& value, const char* name = "<unknow
     (void)name;
     if(!obj || obj == Py_None)
         return true;
-    if(PyInt_CheckExact(obj))
+    if(!!PyInt_CheckExact(obj))
         value = (float)PyInt_AS_LONG(obj);
     else
         value = (float)PyFloat_AsDouble(obj);
@@ -623,7 +638,7 @@ static inline bool pyopencv_to(PyObject* obj, Point& p, const char* name = "<unk
     (void)name;
     if(!obj || obj == Py_None)
         return true;
-    if(PyComplex_CheckExact(obj))
+    if(!!PyComplex_CheckExact(obj))
     {
         Py_complex c = PyComplex_AsCComplex(obj);
         p.x = saturate_cast<int>(c.real);
@@ -638,7 +653,7 @@ static inline bool pyopencv_to(PyObject* obj, Point2f& p, const char* name = "<u
     (void)name;
     if(!obj || obj == Py_None)
         return true;
-    if(PyComplex_CheckExact(obj))
+    if(!!PyComplex_CheckExact(obj))
     {
         Py_complex c = PyComplex_AsCComplex(obj);
         p.x = saturate_cast<float>(c.real);
@@ -957,7 +972,7 @@ static inline PyObject* pyopencv_from(const Moments& m)
                          "mu20", m.mu20, "mu11", m.mu11, "mu02", m.mu02,
                          "mu30", m.mu30, "mu21", m.mu21, "mu12", m.mu12, "mu03", m.mu03,
                          "nu20", m.nu20, "nu11", m.nu11, "nu02", m.nu02,
-                         "nu30", m.nu30, "nu21", m.nu21, "nu12", m.nu12, "mu03", m.nu03);
+                         "nu30", m.nu30, "nu21", m.nu21, "nu12", m.nu12, "nu03", m.nu03);
 }
 
 static inline PyObject* pyopencv_from(const CvDTreeNode* node)
@@ -989,7 +1004,7 @@ static bool pyopencv_to(PyObject *o, cv::flann::IndexParams& p, const char *name
                 const char* value = PyString_AsString(item);
                 p.setString(k, value);
             }
-            else if( PyBool_Check(item) )
+            else if( !!PyBool_Check(item) )
                 p.setBool(k, item == Py_True);
             else if( PyInt_Check(item) )
             {
@@ -1248,4 +1263,3 @@ void initcv2()
 
 #include "pyopencv_generated_const_reg.h"
 }
-

@@ -7,7 +7,7 @@
 //  copy or use the software.
 //
 //
-//                          License Agreement
+//                           License Agreement
 //                For Open Source Computer Vision Library
 //
 // Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
@@ -47,9 +47,7 @@
     #pragma warning( disable: 4251 4710 4711 4514 4996 )
 #endif
 
-#ifdef HAVE_CVCONFIG_H
     #include "cvconfig.h"
-#endif
 
 #include <cstring>
 #include <iostream>
@@ -116,11 +114,13 @@
     #define CUDART_MINIMUM_REQUIRED_VERSION 4010
     #define NPP_MINIMUM_REQUIRED_VERSION 4100
 
+    #define NPP_VERSION (NPP_VERSION_MAJOR * 1000 + NPP_VERSION_MINOR * 100 + NPP_VERSION_BUILD)
+
     #if (CUDART_VERSION < CUDART_MINIMUM_REQUIRED_VERSION)
         #error "Insufficient Cuda Runtime library version, please update it."
     #endif
 
-    #if (NPP_VERSION_MAJOR * 1000 + NPP_VERSION_MINOR * 100 + NPP_VERSION_BUILD < NPP_MINIMUM_REQUIRED_VERSION)
+    #if (NPP_VERSION < NPP_MINIMUM_REQUIRED_VERSION)
         #error "Insufficient NPP version, please update it."
     #endif
 

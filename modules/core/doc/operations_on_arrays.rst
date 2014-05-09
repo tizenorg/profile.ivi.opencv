@@ -103,7 +103,7 @@ Calculates the per-element sum of two arrays or an array and a scalar.
 
     :param dst: output array that has the same size and number of channels as the input array(s); the depth is defined by ``dtype`` or ``src1``/``src2``.
 
-    :param mask: optional operation mask – 8-bit single channel array, that specifies elements of the output array to be changed.
+    :param mask: optional operation mask - 8-bit single channel array, that specifies elements of the output array to be changed.
 
     :param dtype: optional depth of the output array (see the discussion below).
 
@@ -532,7 +532,7 @@ Performs the per-element comparison of two arrays or an array and scalar value.
 
     :param value: scalar value.
 
-    :param dst: output array that has the same size as the input arrays and type= ``CV_8UC1`` .
+    :param dst: output array that has the same size and type as the input arrays.
 
     :param cmpop: a flag, that specifies correspondence between the arrays:
 
@@ -868,7 +868,7 @@ Performs a forward or inverse Discrete Fourier transform of a 1D or 2D floating-
             * **DFT_SCALE** scales the result: divide it by the number of array elements. Normally, it is combined with  ``DFT_INVERSE``.
             * **DFT_ROWS** performs a forward or inverse transform of every individual row of the input matrix; this flag enables you to transform multiple vectors simultaneously and can be used to decrease the overhead (which is sometimes several times larger than the processing itself) to perform 3D and higher-dimensional transformations and so forth.
 
-            * **DFT_COMPLEX_OUTPUT** performs a forward transformation of 1D or 2D real array; the result, though being a complex array, has complex-conjugate symmetry (*CCS*, see the function description below for details), and such an array can be packed into a real array of the same size as input, which is the fastest option and which is what the function does by default; however, you may wish to get a full complex array (for simpler spectrum analysis, and so on) – pass the flag to enable the function to produce a full-size complex output array.
+            * **DFT_COMPLEX_OUTPUT** performs a forward transformation of 1D or 2D real array; the result, though being a complex array, has complex-conjugate symmetry (*CCS*, see the function description below for details), and such an array can be packed into a real array of the same size as input, which is the fastest option and which is what the function does by default; however, you may wish to get a full complex array (for simpler spectrum analysis, and so on) - pass the flag to enable the function to produce a full-size complex output array.
 
             * **DFT_REAL_OUTPUT** performs an inverse transformation of a 1D or 2D complex array; the result is normally a complex array of the same size, however, if the input array has conjugate-complex symmetry (for example, it is a result of forward transformation with  ``DFT_COMPLEX_OUTPUT``  flag), the output is a real array; while the function itself does not check whether the input is symmetrical or not, you can pass the flag and then the function will assume the symmetry and produce the real output array (note that when the input is packed into a real array and inverse transformation is executed, the function treats the input as a packed complex-conjugate symmetrical array, and the output will also be a real array).
 
@@ -929,7 +929,7 @@ So, the function chooses an operation mode depending on the flags and size of th
 
     * When ``DFT_COMPLEX_OUTPUT`` is set, the output is a complex matrix of the same size as input.
 
-    * When ``DFT_COMPLEX_OUTPUT`` is not set, the output is a real matrix of the same size as input. In case of 2D transform, it uses the packed format as shown above. In case of a single 1D transform, it looks like the first row of the matrix above. In case of multiple 1D transforms (when using the ``DCT_ROWS``         flag), each row of the output matrix looks like the first row of the matrix above.
+    * When ``DFT_COMPLEX_OUTPUT`` is not set, the output is a real matrix of the same size as input. In case of 2D transform, it uses the packed format as shown above. In case of a single 1D transform, it looks like the first row of the matrix above. In case of multiple 1D transforms (when using the ``DFT_ROWS``         flag), each row of the output matrix looks like the first row of the matrix above.
 
  * If the input array is complex and either ``DFT_INVERSE``     or ``DFT_REAL_OUTPUT``     are not set, the output is a complex array of the same size as input. The function performs a forward or inverse 1D or 2D transform of the whole input array or each row of the input array independently, depending on the flags ``DFT_INVERSE`` and ``DFT_ROWS``.
 
@@ -997,6 +997,12 @@ All of the above improvements have been implemented in :ocv:func:`matchTemplate`
 
 .. seealso:: :ocv:func:`dct` , :ocv:func:`getOptimalDFTSize` , :ocv:func:`mulSpectrums`, :ocv:func:`filter2D` , :ocv:func:`matchTemplate` , :ocv:func:`flip` , :ocv:func:`cartToPolar` , :ocv:func:`magnitude` , :ocv:func:`phase`
 
+.. note::
+
+   * An example using the discrete fourier transform can be found at opencv_source_code/samples/cpp/dft.cpp
+
+   * (Python) An example using the dft functionality to perform Wiener deconvolution can be found at opencv_source/samples/python2/deconvolution.py
+   * (Python) An example rearranging the quadrants of a Fourier image can be found at opencv_source/samples/python2/dft.py
 
 
 divide
@@ -1061,6 +1067,8 @@ Returns the determinant of a square floating-point matrix.
 .. ocv:pyoldfunction:: cv.Det(mat) -> float
 
     :param mtx: input matrix that must have ``CV_32FC1`` or ``CV_64FC1`` type and square size.
+
+    :param mat: input matrix that must have ``CV_32FC1`` or ``CV_64FC1`` type and square size.
 
 The function ``determinant`` calculates and returns the determinant of the specified matrix. For small matrices ( ``mtx.cols=mtx.rows<=3`` ),
 the direct method is used. For larger matrices, the function uses LU factorization with partial pivoting.
@@ -2260,7 +2268,9 @@ The sample below is the function that takes two matrices. The first function sto
     :ocv:func:`dft`,
     :ocv:func:`dct`
 
+.. note::
 
+   * An example using PCA for dimensionality reduction while maintaining an amount of variance can be found at opencv_source_code/samples/cpp/pca.cpp
 
 PCA::PCA
 --------

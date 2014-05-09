@@ -2115,7 +2115,7 @@ CV_IMPL IplImage* icvCreateIsometricImage( IplImage* src, IplImage* dst,
     if( !dst || dst->depth != desired_depth ||
         dst->nChannels != desired_num_channels ||
         dst_size.width != src_size.width ||
-        dst_size.height != dst_size.height )
+        dst_size.height != src_size.height )
     {
         cvReleaseImage( &dst );
         dst = cvCreateImage( src_size, desired_depth, desired_num_channels );
@@ -3621,7 +3621,7 @@ int cvComputeEpipolesFromFundMatrix(CvMatr32f fundMatr,
     CvMat* matrV = cvCreateMat(3,3,CV_MAT32F);
 
     /* From svd we need just last vector of U and V or last row from U' and V' */
-    /* We get transposed matrixes U and V */
+    /* We get transposed matrices U and V */
     cvSVD(&fundMatrC,matrW,matrU,matrV,CV_SVD_V_T|CV_SVD_U_T);
 
     /* Get last row from U' and compute epipole1 */
@@ -3698,5 +3698,3 @@ int cvComputeEssentialMatrix(  CvMatr32f rotMatr,
 
     return CV_OK;
 }
-
-

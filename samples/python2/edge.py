@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 '''
 This sample demonstrates Canny edge detection.
@@ -43,4 +43,3 @@ if __name__ == '__main__':
         if ch == 27:
             break
     cv2.destroyAllWindows()
-

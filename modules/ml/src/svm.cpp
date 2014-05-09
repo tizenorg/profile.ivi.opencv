@@ -1343,6 +1343,8 @@ bool CvSVM::do_train( int svm_type, int sample_count, int var_count, const float
         for( i = 0; i < sample_count; i++ )
             sv_count += fabs(alpha[i]) > 0;
 
+        CV_Assert(sv_count != 0);
+
         sv_total = df->sv_count = sv_count;
         CV_CALL( df->alpha = (double*)cvMemStorageAlloc( storage, sv_count*sizeof(df->alpha[0])) );
         CV_CALL( sv = (float**)cvMemStorageAlloc( storage, sv_count*sizeof(sv[0])));
@@ -1517,12 +1519,69 @@ bool CvSVM::do_train( int svm_type, int sample_count, int var_count, const float
         }
     }
 
+    optimize_linear_svm();
     ok = true;
 
     __END__;
 
     return ok;
 }
+
+
+void CvSVM::optimize_linear_svm()
+{
+    // we optimize only linear SVM: compress all the support vectors into one.
+    if( params.kernel_type != LINEAR )
+        return;
+
+    int class_count = class_labels ? class_labels->cols :
+            params.svm_type == CvSVM::ONE_CLASS ? 1 : 0;
+
+    int i, df_count = class_count > 1 ? class_count*(class_count-1)/2 : 1;
+    CvSVMDecisionFunc* df = decision_func;
+
+    for( i = 0; i < df_count; i++ )
+    {
+        int sv_count = df[i].sv_count;
+        if( sv_count != 1 )
+            break;
+    }
+
+    // if every decision functions uses a single support vector;
+    // it's already compressed. skip it then.
+    if( i == df_count )
+        return;
+
+    int var_count = get_var_count();
+    cv::AutoBuffer<double> vbuf(var_count);
+    double* v = vbuf;
+    float** new_sv = (float**)cvMemStorageAlloc(storage, df_count*sizeof(new_sv[0]));
+
+    for( i = 0; i < df_count; i++ )
+    {
+        new_sv[i] = (float*)cvMemStorageAlloc(storage, var_count*sizeof(new_sv[i][0]));
+        float* dst = new_sv[i];
+        memset(v, 0, var_count*sizeof(v[0]));
+        int j, k, sv_count = df[i].sv_count;
+        for( j = 0; j < sv_count; j++ )
+        {
+            const float* src = class_count > 1 && df[i].sv_index ? sv[df[i].sv_index[j]] : sv[j];
+            double a = df[i].alpha[j];
+            for( k = 0; k < var_count; k++ )
+                v[k] += src[k]*a;
+        }
+        for( k = 0; k < var_count; k++ )
+            dst[k] = (float)v[k];
+        df[i].sv_count = 1;
+        df[i].alpha[0] = 1.;
+        if( class_count > 1 && df[i].sv_index )
+            df[i].sv_index[0] = i;
+    }
+
+    sv = new_sv;
+    sv_total = df_count;
+}
+
 
 bool CvSVM::train( const CvMat* _train_data, const CvMat* _responses,
     const CvMat* _var_idx, const CvMat* _sample_idx, CvSVMParams _params )
@@ -2086,7 +2145,7 @@ float CvSVM::predict( const CvMat* sample, bool returnDFVal ) const
     return result;
 }
 
-struct predict_body_svm {
+struct predict_body_svm : ParallelLoopBody {
     predict_body_svm(const CvSVM* _pointer, float* _result, const CvMat* _samples, CvMat* _results)
     {
         pointer = _pointer;
@@ -2100,9 +2159,9 @@ struct predict_body_svm {
     const CvMat* samples;
     CvMat* results;
 
-    void operator()( const cv::BlockedRange& range ) const
+    void operator()( const cv::Range& range ) const
     {
-        for(int i = range.begin(); i < range.end(); i++ )
+        for(int i = range.start; i < range.end; i++ )
         {
             CvMat sample;
             cvGetRow( samples, &sample, i );
@@ -2118,7 +2177,7 @@ struct predict_body_svm {
 float CvSVM::predict(const CvMat* samples, CV_OUT CvMat* results) const
 {
     float result = 0;
-    cv::parallel_for(cv::BlockedRange(0, samples->rows),
+    cv::parallel_for_(cv::Range(0, samples->rows),
              predict_body_svm(this, &result, samples, results)
     );
     return result;
@@ -2239,14 +2298,24 @@ void CvSVM::write_params( CvFileStorage* fs ) const
 }
 
 
+static bool isSvmModelApplicable(int sv_total, int var_all, int var_count, int class_count)
+{
+    return (sv_total > 0 && var_count > 0 && var_count <= var_all && class_count >= 0);
+}
+
+
 void CvSVM::write( CvFileStorage* fs, const char* name ) const
 {
     CV_FUNCNAME( "CvSVM::write" );
 
     __BEGIN__;
 
-    int i, var_count = get_var_count(), df_count, class_count;
+    int i, var_count = get_var_count(), df_count;
+    int class_count = class_labels ? class_labels->cols :
+                      params.svm_type == CvSVM::ONE_CLASS ? 1 : 0;
     const CvSVMDecisionFunc* df = decision_func;
+    if( !isSvmModelApplicable(sv_total, var_all, var_count, class_count) )
+        CV_ERROR( CV_StsParseError, "SVM model data is invalid, check sv_count, var_* and class_count tags" );
 
     cvStartWriteStruct( fs, name, CV_NODE_MAP, CV_TYPE_NAME_ML_SVM );
 
@@ -2254,9 +2323,6 @@ void CvSVM::write( CvFileStorage* fs, const char* name ) const
 
     cvWriteInt( fs, "var_all", var_all );
     cvWriteInt( fs, "var_count", var_count );
-
-    class_count = class_labels ? class_labels->cols :
-                  params.svm_type == CvSVM::ONE_CLASS ? 1 : 0;
 
     if( class_count )
     {
@@ -2395,7 +2461,6 @@ void CvSVM::read_params( CvFileStorage* fs, CvFileNode* svm_node )
     __END__;
 }
 
-
 void CvSVM::read( CvFileStorage* fs, CvFileNode* svm_node )
 {
     const double not_found_dbl = DBL_MAX;
@@ -2424,7 +2489,7 @@ void CvSVM::read( CvFileStorage* fs, CvFileNode* svm_node )
     var_count = cvReadIntByName( fs, svm_node, "var_count", var_all );
     class_count = cvReadIntByName( fs, svm_node, "class_count", 0 );
 
-    if( sv_total <= 0 || var_all <= 0 || var_count <= 0 || var_count > var_all || class_count < 0 )
+    if( !isSvmModelApplicable(sv_total, var_all, var_count, class_count) )
         CV_ERROR( CV_StsParseError, "SVM model data is invalid, check sv_count, var_* and class_count tags" );
 
     CV_CALL( class_labels = (CvMat*)cvReadByName( fs, svm_node, "class_labels" ));
@@ -2516,6 +2581,8 @@ void CvSVM::read( CvFileStorage* fs, CvFileNode* svm_node )
         CV_NEXT_SEQ_ELEM( df_node->data.seq->elem_size, reader );
     }
 
+    if( cvReadIntByName(fs, svm_node, "optimize_linear", 1) != 0 )
+        optimize_linear_svm();
     create_kernel();
 
     __END__;
@@ -2890,4 +2957,3 @@ cvTrainSVM_CrossValidation( const CvMat* train_data, int tflag,
 #endif
 
 /* End of file. */
-

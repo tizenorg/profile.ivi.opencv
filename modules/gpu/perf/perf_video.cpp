@@ -1,8 +1,63 @@
+/*M///////////////////////////////////////////////////////////////////////////////////////
+//
+//  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
+//
+//  By downloading, copying, installing or using the software you agree to this license.
+//  If you do not agree to this license, do not download, install,
+//  copy or use the software.
+//
+//
+//                           License Agreement
+//                For Open Source Computer Vision Library
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+//   * Redistribution's of source code must retain the above copyright notice,
+//     this list of conditions and the following disclaimer.
+//
+//   * Redistribution's in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//
+//   * The name of the copyright holders may not be used to endorse or promote products
+//     derived from this software without specific prior written permission.
+//
+// This software is provided by the copyright holders and contributors "as is" and
+// any express or implied warranties, including, but not limited to, the implied
+// warranties of merchantability and fitness for a particular purpose are disclaimed.
+// In no event shall the Intel Corporation or contributors be liable for any direct,
+// indirect, incidental, special, exemplary, or consequential damages
+// (including, but not limited to, procurement of substitute goods or services;
+// loss of use, data, or profits; or business interruption) however caused
+// and on any theory of liability, whether in contract, strict liability,
+// or tort (including negligence or otherwise) arising in any way out of
+// the use of this software, even if advised of the possibility of such damage.
+//
+//M*/
+
 #include "perf_precomp.hpp"
 
 using namespace std;
 using namespace testing;
 using namespace perf;
+
+#if defined(HAVE_XINE)         || \
+    defined(HAVE_GSTREAMER)    || \
+    defined(HAVE_QUICKTIME)    || \
+    defined(HAVE_QTKIT)        || \
+    defined(HAVE_AVFOUNDATION) || \
+    defined(HAVE_FFMPEG)       || \
+    defined(WIN32) /* assume that we have ffmpeg */
+
+#  define BUILD_WITH_VIDEO_INPUT_SUPPORT 1
+#else
+#  define BUILD_WITH_VIDEO_INPUT_SUPPORT 0
+#endif
 
 namespace cv
 {
@@ -49,7 +104,7 @@ PERF_TEST_P(ImagePair, Video_InterpolateFrames,
 
         TEST_CYCLE() cv::gpu::interpolateFrames(d_frame0, d_frame1, d_fu, d_fv, d_bu, d_bv, 0.5f, newFrame, d_buf);
 
-        GPU_SANITY_CHECK(newFrame);
+        GPU_SANITY_CHECK(newFrame, 1e-4);
     }
     else
     {
@@ -88,7 +143,7 @@ PERF_TEST_P(ImagePair, Video_CreateOpticalFlowNeedleMap,
 
         TEST_CYCLE() cv::gpu::createOpticalFlowNeedleMap(u, v, vertex, colors);
 
-        GPU_SANITY_CHECK(vertex);
+        GPU_SANITY_CHECK(vertex, 1e-6);
         GPU_SANITY_CHECK(colors);
     }
     else
@@ -142,7 +197,7 @@ PERF_TEST_P(Image_MinDistance, Video_GoodFeaturesToTrack,
 PERF_TEST_P(ImagePair, Video_BroxOpticalFlow,
             Values<pair_string>(make_pair("gpu/opticalflow/frame0.png", "gpu/opticalflow/frame1.png")))
 {
-    declare.time(10);
+    declare.time(300);
 
     cv::Mat frame0 = readImage(GetParam().first, cv::IMREAD_GRAYSCALE);
     ASSERT_FALSE(frame0.empty());
@@ -165,8 +220,8 @@ PERF_TEST_P(ImagePair, Video_BroxOpticalFlow,
 
         TEST_CYCLE() d_flow(d_frame0, d_frame1, u, v);
 
-        GPU_SANITY_CHECK(u);
-        GPU_SANITY_CHECK(v);
+        GPU_SANITY_CHECK(u, 1e-1);
+        GPU_SANITY_CHECK(v, 1e-1);
     }
     else
     {
@@ -372,8 +427,8 @@ PERF_TEST_P(ImagePair, Video_OpticalFlowDual_TVL1,
 
         TEST_CYCLE() d_alg(d_frame0, d_frame1, u, v);
 
-        GPU_SANITY_CHECK(u, 1e-4);
-        GPU_SANITY_CHECK(v, 1e-4);
+        GPU_SANITY_CHECK(u, 1e-1);
+        GPU_SANITY_CHECK(v, 1e-1);
     }
     else
     {
@@ -445,7 +500,7 @@ PERF_TEST_P(ImagePair, Video_OpticalFlowBM,
     }
 }
 
-PERF_TEST_P(ImagePair, Video_FastOpticalFlowBM,
+PERF_TEST_P(ImagePair, DISABLED_Video_FastOpticalFlowBM,
             Values<pair_string>(make_pair("gpu/opticalflow/frame0.png", "gpu/opticalflow/frame1.png")))
 {
     declare.time(400);
@@ -482,11 +537,15 @@ PERF_TEST_P(ImagePair, Video_FastOpticalFlowBM,
 //////////////////////////////////////////////////////
 // FGDStatModel
 
+#if BUILD_WITH_VIDEO_INPUT_SUPPORT
+
 DEF_PARAM_TEST_1(Video, string);
 
 PERF_TEST_P(Video, Video_FGDStatModel,
             Values(string("gpu/video/768x576.avi")))
 {
+    const int numIters = 10;
+
     declare.time(60);
 
     const string inputFile = perf::TestBase::getDataPath(GetParam());
@@ -505,16 +564,34 @@ PERF_TEST_P(Video, Video_FGDStatModel,
         cv::gpu::FGDStatModel d_model(4);
         d_model.create(d_frame);
 
-        for (int i = 0; i < 10; ++i)
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             ASSERT_FALSE(frame.empty());
 
             d_frame.upload(frame);
 
-            startTimer(); next();
+            startTimer();
+            if(!next())
+                break;
+
             d_model.update(d_frame);
+
             stopTimer();
+        }
+
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            ASSERT_FALSE(frame.empty());
+
+            d_frame.upload(frame);
+
+            d_model.update(d_frame);
         }
 
         const cv::gpu::GpuMat background = d_model.background;
@@ -528,16 +605,34 @@ PERF_TEST_P(Video, Video_FGDStatModel,
         IplImage ipl_frame = frame;
         cv::Ptr<CvBGStatModel> model(cvCreateFGDStatModel(&ipl_frame));
 
-        for (int i = 0; i < 10; ++i)
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             ASSERT_FALSE(frame.empty());
 
             ipl_frame = frame;
 
-            startTimer(); next();
+            startTimer();
+            if(!next())
+                break;
+
             cvUpdateBGStatModel(&ipl_frame, model);
+
             stopTimer();
+        }
+
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            ASSERT_FALSE(frame.empty());
+
+            ipl_frame = frame;
+
+            cvUpdateBGStatModel(&ipl_frame, model);
         }
 
         const cv::Mat background = model->background;
@@ -548,8 +643,12 @@ PERF_TEST_P(Video, Video_FGDStatModel,
     }
 }
 
+#endif
+
 //////////////////////////////////////////////////////
 // MOG
+
+#if BUILD_WITH_VIDEO_INPUT_SUPPORT
 
 DEF_PARAM_TEST(Video_Cn_LearningRate, string, MatCn, double);
 
@@ -558,6 +657,8 @@ PERF_TEST_P(Video_Cn_LearningRate, Video_MOG,
                     GPU_CHANNELS_1_3_4,
                     Values(0.0, 0.01)))
 {
+    const int numIters = 10;
+
     const string inputFile = perf::TestBase::getDataPath(GET_PARAM(0));
     const int cn = GET_PARAM(1);
     const float learningRate = static_cast<float>(GET_PARAM(2));
@@ -588,7 +689,10 @@ PERF_TEST_P(Video_Cn_LearningRate, Video_MOG,
 
         d_mog(d_frame, foreground, learningRate);
 
-        for (int i = 0; i < 10; ++i)
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             ASSERT_FALSE(frame.empty());
@@ -605,21 +709,17 @@ PERF_TEST_P(Video_Cn_LearningRate, Video_MOG,
 
             d_frame.upload(frame);
 
-            startTimer(); next();
+            startTimer();
+            if(!next())
+                break;
+
             d_mog(d_frame, foreground, learningRate);
+
             stopTimer();
         }
 
-        GPU_SANITY_CHECK(foreground);
-    }
-    else
-    {
-        cv::BackgroundSubtractorMOG mog;
-        cv::Mat foreground;
-
-        mog(frame, foreground, learningRate);
-
-        for (int i = 0; i < 10; ++i)
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             ASSERT_FALSE(frame.empty());
@@ -634,24 +734,85 @@ PERF_TEST_P(Video_Cn_LearningRate, Video_MOG,
                 cv::swap(temp, frame);
             }
 
-            startTimer(); next();
+            d_frame.upload(frame);
+
+            d_mog(d_frame, foreground, learningRate);
+        }
+
+        GPU_SANITY_CHECK(foreground);
+    }
+    else
+    {
+        cv::BackgroundSubtractorMOG mog;
+        cv::Mat foreground;
+
+        mog(frame, foreground, learningRate);
+
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            ASSERT_FALSE(frame.empty());
+
+            if (cn != 3)
+            {
+                cv::Mat temp;
+                if (cn == 1)
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
+                else
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
+                cv::swap(temp, frame);
+            }
+
+            startTimer();
+            if(!next())
+                break;
+
             mog(frame, foreground, learningRate);
+
             stopTimer();
+        }
+
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            ASSERT_FALSE(frame.empty());
+
+            if (cn != 3)
+            {
+                cv::Mat temp;
+                if (cn == 1)
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
+                else
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
+                cv::swap(temp, frame);
+            }
+
+            mog(frame, foreground, learningRate);
         }
 
         CPU_SANITY_CHECK(foreground);
     }
 }
 
+#endif
+
 //////////////////////////////////////////////////////
 // MOG2
 
+#if BUILD_WITH_VIDEO_INPUT_SUPPORT
+
 DEF_PARAM_TEST(Video_Cn, string, int);
 
-PERF_TEST_P(Video_Cn, Video_MOG2,
+PERF_TEST_P(Video_Cn, DISABLED_Video_MOG2,
             Combine(Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"),
                     GPU_CHANNELS_1_3_4))
 {
+    const int numIters = 10;
+
     const string inputFile = perf::TestBase::getDataPath(GET_PARAM(0));
     const int cn = GET_PARAM(1);
 
@@ -683,7 +844,10 @@ PERF_TEST_P(Video_Cn, Video_MOG2,
 
         d_mog2(d_frame, foreground);
 
-        for (int i = 0; i < 10; ++i)
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             ASSERT_FALSE(frame.empty());
@@ -700,23 +864,17 @@ PERF_TEST_P(Video_Cn, Video_MOG2,
 
             d_frame.upload(frame);
 
-            startTimer(); next();
+            startTimer();
+            if(!next())
+                break;
+
             d_mog2(d_frame, foreground);
+
             stopTimer();
         }
 
-        GPU_SANITY_CHECK(foreground);
-    }
-    else
-    {
-        cv::BackgroundSubtractorMOG2 mog2;
-        mog2.set("detectShadows", false);
-
-        cv::Mat foreground;
-
-        mog2(frame, foreground);
-
-        for (int i = 0; i < 10; ++i)
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             ASSERT_FALSE(frame.empty());
@@ -731,17 +889,78 @@ PERF_TEST_P(Video_Cn, Video_MOG2,
                 cv::swap(temp, frame);
             }
 
-            startTimer(); next();
+            d_frame.upload(frame);
+
+            d_mog2(d_frame, foreground);
+        }
+
+        GPU_SANITY_CHECK(foreground);
+    }
+    else
+    {
+        cv::BackgroundSubtractorMOG2 mog2;
+        mog2.set("detectShadows", false);
+
+        cv::Mat foreground;
+
+        mog2(frame, foreground);
+
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            ASSERT_FALSE(frame.empty());
+
+            if (cn != 3)
+            {
+                cv::Mat temp;
+                if (cn == 1)
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
+                else
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
+                cv::swap(temp, frame);
+            }
+
+            startTimer();
+            if(!next())
+                break;
+
             mog2(frame, foreground);
+
             stopTimer();
+        }
+
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            ASSERT_FALSE(frame.empty());
+
+            if (cn != 3)
+            {
+                cv::Mat temp;
+                if (cn == 1)
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
+                else
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
+                cv::swap(temp, frame);
+            }
+
+            mog2(frame, foreground);
         }
 
         CPU_SANITY_CHECK(foreground);
     }
 }
 
+#endif
+
 //////////////////////////////////////////////////////
 // MOG2GetBackgroundImage
+
+#if BUILD_WITH_VIDEO_INPUT_SUPPORT
 
 PERF_TEST_P(Video_Cn, Video_MOG2GetBackgroundImage,
             Combine(Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"),
@@ -818,73 +1037,12 @@ PERF_TEST_P(Video_Cn, Video_MOG2GetBackgroundImage,
     }
 }
 
-//////////////////////////////////////////////////////
-// VIBE
-
-PERF_TEST_P(Video_Cn, Video_VIBE,
-            Combine(Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"),
-                    GPU_CHANNELS_1_3_4))
-{
-    const string inputFile = perf::TestBase::getDataPath(GET_PARAM(0));
-    const int cn = GET_PARAM(1);
-
-    cv::VideoCapture cap(inputFile);
-    ASSERT_TRUE(cap.isOpened());
-
-    cv::Mat frame;
-    cap >> frame;
-    ASSERT_FALSE(frame.empty());
-
-    if (cn != 3)
-    {
-        cv::Mat temp;
-        if (cn == 1)
-            cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
-        else
-            cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
-        cv::swap(temp, frame);
-    }
-
-    if (PERF_RUN_GPU())
-    {
-        cv::gpu::GpuMat d_frame(frame);
-        cv::gpu::VIBE_GPU vibe;
-        cv::gpu::GpuMat foreground;
-
-        vibe(d_frame, foreground);
-
-        for (int i = 0; i < 10; ++i)
-        {
-            cap >> frame;
-            ASSERT_FALSE(frame.empty());
-
-            if (cn != 3)
-            {
-                cv::Mat temp;
-                if (cn == 1)
-                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
-                else
-                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
-                cv::swap(temp, frame);
-            }
-
-            d_frame.upload(frame);
-
-            startTimer(); next();
-            vibe(d_frame, foreground);
-            stopTimer();
-        }
-
-        GPU_SANITY_CHECK(foreground);
-    }
-    else
-    {
-        FAIL_NO_CPU();
-    }
-}
+#endif
 
 //////////////////////////////////////////////////////
 // GMG
+
+#if BUILD_WITH_VIDEO_INPUT_SUPPORT
 
 DEF_PARAM_TEST(Video_Cn_MaxFeatures, string, MatCn, int);
 
@@ -893,6 +1051,8 @@ PERF_TEST_P(Video_Cn_MaxFeatures, Video_GMG,
                     GPU_CHANNELS_1_3_4,
                     Values(20, 40, 60)))
 {
+    const int numIters = 150;
+
     const std::string inputFile = perf::TestBase::getDataPath(GET_PARAM(0));
     const int cn = GET_PARAM(1);
     const int maxFeatures = GET_PARAM(2);
@@ -924,7 +1084,10 @@ PERF_TEST_P(Video_Cn_MaxFeatures, Video_GMG,
 
         d_gmg(d_frame, foreground);
 
-        for (int i = 0; i < 150; ++i)
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             if (frame.empty())
@@ -946,25 +1109,17 @@ PERF_TEST_P(Video_Cn_MaxFeatures, Video_GMG,
 
             d_frame.upload(frame);
 
-            startTimer(); next();
+            startTimer();
+            if(!next())
+                break;
+
             d_gmg(d_frame, foreground);
+
             stopTimer();
         }
 
-        GPU_SANITY_CHECK(foreground);
-    }
-    else
-    {
-        cv::Mat foreground;
-        cv::Mat zeros(frame.size(), CV_8UC1, cv::Scalar::all(0));
-
-        cv::BackgroundSubtractorGMG gmg;
-        gmg.set("maxFeatures", maxFeatures);
-        gmg.initialize(frame.size(), 0.0, 255.0);
-
-        gmg(frame, foreground);
-
-        for (int i = 0; i < 150; ++i)
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
         {
             cap >> frame;
             if (frame.empty())
@@ -984,21 +1139,92 @@ PERF_TEST_P(Video_Cn_MaxFeatures, Video_GMG,
                 cv::swap(temp, frame);
             }
 
-            startTimer(); next();
+            d_frame.upload(frame);
+
+            d_gmg(d_frame, foreground);
+        }
+
+        GPU_SANITY_CHECK(foreground);
+    }
+    else
+    {
+        cv::Mat foreground;
+        cv::Mat zeros(frame.size(), CV_8UC1, cv::Scalar::all(0));
+
+        cv::BackgroundSubtractorGMG gmg;
+        gmg.set("maxFeatures", maxFeatures);
+        gmg.initialize(frame.size(), 0.0, 255.0);
+
+        gmg(frame, foreground);
+
+        int i = 0;
+
+        // collect performance data
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            if (frame.empty())
+            {
+                cap.release();
+                cap.open(inputFile);
+                cap >> frame;
+            }
+
+            if (cn != 3)
+            {
+                cv::Mat temp;
+                if (cn == 1)
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
+                else
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
+                cv::swap(temp, frame);
+            }
+
+            startTimer();
+            if(!next())
+                break;
+
             gmg(frame, foreground);
+
             stopTimer();
+        }
+
+        // process last frame in sequence to get data for sanity test
+        for (; i < numIters; ++i)
+        {
+            cap >> frame;
+            if (frame.empty())
+            {
+                cap.release();
+                cap.open(inputFile);
+                cap >> frame;
+            }
+
+            if (cn != 3)
+            {
+                cv::Mat temp;
+                if (cn == 1)
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2GRAY);
+                else
+                    cv::cvtColor(frame, temp, cv::COLOR_BGR2BGRA);
+                cv::swap(temp, frame);
+            }
+
+            gmg(frame, foreground);
         }
 
         CPU_SANITY_CHECK(foreground);
     }
 }
 
-#ifdef HAVE_NVCUVID
+#endif
 
 //////////////////////////////////////////////////////
 // VideoReader
 
-PERF_TEST_P(Video, Video_VideoReader, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
+#if defined(HAVE_NVCUVID) && BUILD_WITH_VIDEO_INPUT_SUPPORT
+
+PERF_TEST_P(Video, DISABLED_Video_VideoReader, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
 {
     declare.time(20);
 
@@ -1028,12 +1254,14 @@ PERF_TEST_P(Video, Video_VideoReader, Values("gpu/video/768x576.avi", "gpu/video
     }
 }
 
+#endif
+
 //////////////////////////////////////////////////////
 // VideoWriter
 
-#ifdef WIN32
+#if defined(HAVE_NVCUVID) && defined(WIN32)
 
-PERF_TEST_P(Video, Video_VideoWriter, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
+PERF_TEST_P(Video, DISABLED_Video_VideoWriter, Values("gpu/video/768x576.avi", "gpu/video/1920x1080.avi"))
 {
     declare.time(30);
 
@@ -1089,6 +1317,4 @@ PERF_TEST_P(Video, Video_VideoWriter, Values("gpu/video/768x576.avi", "gpu/video
     SANITY_CHECK(frame);
 }
 
-#endif // WIN32
-
-#endif // HAVE_NVCUVID
+#endif

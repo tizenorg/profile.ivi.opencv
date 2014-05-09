@@ -236,7 +236,7 @@ protected:
     }
 };
 
-TEST(Calib3d_SolvePnPRansac, accuracy) { CV_solvePnPRansac_Test test; test.safe_run(); }
+TEST(DISABLED_Calib3d_SolvePnPRansac, accuracy) { CV_solvePnPRansac_Test test; test.safe_run(); }
 TEST(Calib3d_SolvePnP, accuracy) { CV_solvePnP_Test test; test.safe_run(); }
 
 
@@ -271,7 +271,7 @@ TEST(DISABLED_Calib3d_SolvePnPRansac, concurrency)
     Mat tvec1, tvec2;
 
     {
-        // limit concurrency to get determenistic result
+        // limit concurrency to get deterministic result
         cv::theRNG().state = 20121010;
         cv::Ptr<tbb::task_scheduler_init> one_thread = new tbb::task_scheduler_init(1);
         solvePnPRansac(object, image, camera_mat, dist_coef, rvec1, tvec1);

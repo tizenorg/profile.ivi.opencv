@@ -1,154 +1,76 @@
 if(APPLE)
   set(OPENCL_FOUND YES)
-  set(OPENCL_LIBRARIES "-framework OpenCL")
-else()
-  find_package(OpenCL QUIET)
-  if(WITH_OPENCLAMDFFT)
-    set(CLAMDFFT_SEARCH_PATH $ENV{CLAMDFFT_PATH})
-    if(NOT CLAMDFFT_SEARCH_PATH)
-      if(WIN32)
-        set( CLAMDFFT_SEARCH_PATH "C:\\Program Files (x86)\\AMD\\clAmdFft" )
-      endif()
-    endif()
-    set( CLAMDFFT_INCLUDE_SEARCH_PATH ${CLAMDFFT_SEARCH_PATH}/include )
-    if(UNIX)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(CLAMDFFT_LIB_SEARCH_PATH /usr/lib)
-      else()
-        set(CLAMDFFT_LIB_SEARCH_PATH /usr/lib64)
-      endif()
-    else()
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(CLAMDFFT_LIB_SEARCH_PATH ${CLAMDFFT_SEARCH_PATH}\\lib32\\import)
-      else()
-        set(CLAMDFFT_LIB_SEARCH_PATH ${CLAMDFFT_SEARCH_PATH}\\lib64\\import)
-      endif()
-    endif()
-    find_path(CLAMDFFT_INCLUDE_DIR
-      NAMES clAmdFft.h
-      PATHS ${CLAMDFFT_INCLUDE_SEARCH_PATH}
-      PATH_SUFFIXES clAmdFft
-      NO_DEFAULT_PATH)
-    find_library(CLAMDFFT_LIBRARY
-      NAMES clAmdFft.Runtime
-      PATHS ${CLAMDFFT_LIB_SEARCH_PATH}
-      NO_DEFAULT_PATH)
-    if(CLAMDFFT_LIBRARY)
-      set(CLAMDFFT_LIBRARIES ${CLAMDFFT_LIBRARY})
-    else()
-      set(CLAMDFFT_LIBRARIES "")
-    endif()
-  endif()
-  if(WITH_OPENCLAMDBLAS)
-    set(CLAMDBLAS_SEARCH_PATH $ENV{CLAMDBLAS_PATH})
-    if(NOT CLAMDBLAS_SEARCH_PATH)
-      if(WIN32)
-        set( CLAMDBLAS_SEARCH_PATH "C:\\Program Files (x86)\\AMD\\clAmdBlas" )
-      endif()
-    endif()
-    set( CLAMDBLAS_INCLUDE_SEARCH_PATH ${CLAMDBLAS_SEARCH_PATH}/include )
-    if(UNIX)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(CLAMDBLAS_LIB_SEARCH_PATH /usr/lib)
-      else()
-        set(CLAMDBLAS_LIB_SEARCH_PATH /usr/lib64)
-      endif()
-    else()
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(CLAMDBLAS_LIB_SEARCH_PATH ${CLAMDBLAS_SEARCH_PATH}\\lib32\\import)
-      else()
-        set(CLAMDBLAS_LIB_SEARCH_PATH ${CLAMDBLAS_SEARCH_PATH}\\lib64\\import)
-      endif()
-    endif()
-    find_path(CLAMDBLAS_INCLUDE_DIR
-      NAMES clAmdBlas.h
-      PATHS ${CLAMDBLAS_INCLUDE_SEARCH_PATH}
-      PATH_SUFFIXES clAmdBlas
-      NO_DEFAULT_PATH)
-    find_library(CLAMDBLAS_LIBRARY
-      NAMES clAmdBlas
-      PATHS ${CLAMDBLAS_LIB_SEARCH_PATH}
-      NO_DEFAULT_PATH)
-    if(CLAMDBLAS_LIBRARY)
-      set(CLAMDBLAS_LIBRARIES ${CLAMDBLAS_LIBRARY})
-    else()
-      set(CLAMDBLAS_LIBRARIES "")
-    endif()
-  endif()
-  # Try AMD/ATI Stream SDK
-  if (NOT OPENCL_FOUND)
-    set(ENV_AMDSTREAMSDKROOT $ENV{AMDAPPSDKROOT})
-    set(ENV_AMDAPPSDKROOT $ENV{AMDAPPSDKROOT})
-    set(ENV_OPENCLROOT $ENV{OPENCLROOT})
-    set(ENV_CUDA_PATH $ENV{CUDA_PATH})
-    set(ENV_INTELOCLSDKROOT $ENV{INTELOCLSDKROOT})
-    if(ENV_AMDSTREAMSDKROOT)
-      set(OPENCL_INCLUDE_SEARCH_PATH ${ENV_AMDAPPSDKROOT}/include)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_AMDAPPSDKROOT}/lib/x86)
-      else()
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_AMDAPPSDKROOT}/lib/x86_64)
-      endif()
-    elseif(ENV_AMDSTREAMSDKROOT)
-      set(OPENCL_INCLUDE_SEARCH_PATH ${ENV_AMDSTREAMSDKROOT}/include)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_AMDSTREAMSDKROOT}/lib/x86)
-      else()
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_AMDSTREAMSDKROOT}/lib/x86_64)
-      endif()
-    elseif(ENV_CUDA_PATH AND WIN32)
-      set(OPENCL_INCLUDE_SEARCH_PATH ${ENV_CUDA_PATH}/include)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_CUDA_PATH}/lib/Win32)
-      else()
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_CUDA_PATH}/lib/x64)
-      endif()
-    elseif(ENV_OPENCLROOT AND UNIX)
-      set(OPENCL_INCLUDE_SEARCH_PATH ${ENV_OPENCLROOT}/inc)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} /usr/lib)
-      else()
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} /usr/lib64)
-      endif()
-    elseif(ENV_INTELOCLSDKROOT)
-      set(OPENCL_INCLUDE_SEARCH_PATH ${ENV_INTELOCLSDKROOT}/include)
-      if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_INTELOCLSDKROOT}/lib/x86)
-      else()
-        set(OPENCL_LIB_SEARCH_PATH ${OPENCL_LIB_SEARCH_PATH} ${ENV_INTELOCLSDKROOT}/lib/x64)
-      endif()
-    endif()
+  set(OPENCL_LIBRARY "-framework OpenCL" CACHE STRING "OpenCL library")
+  set(OPENCL_INCLUDE_DIR "" CACHE STRING "OpenCL include directory")
+  mark_as_advanced(OPENCL_INCLUDE_DIR OPENCL_LIBRARY)
+  set(HAVE_OPENCL_STATIC ON)
+else(APPLE)
+  set(OPENCL_FOUND YES)
+  set(HAVE_OPENCL_STATIC OFF)
+  set(OPENCL_INCLUDE_DIR "${OpenCV_SOURCE_DIR}/3rdparty/include/opencl/1.2")
+endif(APPLE)
 
-    if(OPENCL_INCLUDE_SEARCH_PATH)
-      find_path(OPENCL_INCLUDE_DIR
-        NAMES CL/cl.h OpenCL/cl.h
-        PATHS ${OPENCL_INCLUDE_SEARCH_PATH}
-        NO_DEFAULT_PATH)
-    else()
-      find_path(OPENCL_INCLUDE_DIR
-        NAMES CL/cl.h OpenCL/cl.h)
-    endif()
-
-    if(OPENCL_LIB_SEARCH_PATH)
-      find_library(OPENCL_LIBRARY NAMES OpenCL PATHS ${OPENCL_LIB_SEARCH_PATH} NO_DEFAULT_PATH)
-    else()
-      find_library(OPENCL_LIBRARY NAMES OpenCL)
-    endif()
-
-    include(FindPackageHandleStandardArgs)
-    find_package_handle_standard_args(
-      OPENCL
-      DEFAULT_MSG
-      OPENCL_LIBRARY OPENCL_INCLUDE_DIR
+if(OPENCL_FOUND)
+  if(NOT HAVE_OPENCL_STATIC)
+    try_compile(__VALID_OPENCL
+      "${OpenCV_BINARY_DIR}"
+      "${OpenCV_SOURCE_DIR}/cmake/checks/opencl.cpp"
+      CMAKE_FLAGS "-DINCLUDE_DIRECTORIES:STRING=${OPENCL_INCLUDE_DIR}"
+      OUTPUT_VARIABLE TRY_OUT
       )
-
-    if(OPENCL_FOUND)
-      set(OPENCL_LIBRARIES ${OPENCL_LIBRARY})
-      set(HAVE_OPENCL 1)
-    else()
-      set(OPENCL_LIBRARIES)
+    if(NOT TRY_OUT MATCHES "OpenCL is valid")
+      message(WARNING "Can't use OpenCL")
+      return()
     endif()
+  endif()
+
+  set(HAVE_OPENCL 1)
+
+  if(HAVE_OPENCL_STATIC)
+    set(OPENCL_LIBRARIES "${OPENCL_LIBRARY}")
   else()
-    set(HAVE_OPENCL 1)
+    unset(OPENCL_LIBRARIES)
+  endif()
+
+  set(OPENCL_INCLUDE_DIRS ${OPENCL_INCLUDE_DIR})
+
+  if(WITH_OPENCLAMDFFT)
+    find_path(CLAMDFFT_ROOT_DIR
+              NAMES include/clAmdFft.h
+              PATHS ENV CLAMDFFT_PATH ENV ProgramFiles
+              PATH_SUFFIXES clAmdFft AMD/clAmdFft
+              DOC "AMD FFT root directory"
+              NO_DEFAULT_PATH)
+
+    find_path(CLAMDFFT_INCLUDE_DIR
+              NAMES clAmdFft.h
+              HINTS ${CLAMDFFT_ROOT_DIR}
+              PATH_SUFFIXES include
+              DOC "clAmdFft include directory")
+
+    if(CLAMDFFT_INCLUDE_DIR)
+      set(HAVE_CLAMDFFT 1)
+      list(APPEND OPENCL_INCLUDE_DIRS "${CLAMDFFT_INCLUDE_DIR}")
+    endif()
+  endif()
+
+  if(WITH_OPENCLAMDBLAS)
+    find_path(CLAMDBLAS_ROOT_DIR
+              NAMES include/clAmdBlas.h
+              PATHS ENV CLAMDBLAS_PATH ENV ProgramFiles
+              PATH_SUFFIXES clAmdBlas AMD/clAmdBlas
+              DOC "AMD FFT root directory"
+              NO_DEFAULT_PATH)
+
+    find_path(CLAMDBLAS_INCLUDE_DIR
+              NAMES clAmdBlas.h
+              HINTS ${CLAMDBLAS_ROOT_DIR}
+              PATH_SUFFIXES include
+              DOC "clAmdFft include directory")
+
+    if(CLAMDBLAS_INCLUDE_DIR)
+      set(HAVE_CLAMDBLAS 1)
+      list(APPEND OPENCL_INCLUDE_DIRS "${CLAMDBLAS_INCLUDE_DIR}")
+    endif()
   endif()
 endif()

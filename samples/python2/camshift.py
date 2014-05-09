@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 '''
 Camshift tracker
@@ -117,4 +117,3 @@ if __name__ == '__main__':
     except: video_src = 0
     print __doc__
     App(video_src).run()
-

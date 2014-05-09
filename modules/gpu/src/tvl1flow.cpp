@@ -7,7 +7,7 @@
 //  copy or use the software.
 //
 //
-//                          License Agreement
+//                           License Agreement
 //                For Open Source Computer Vision Library
 //
 // Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
@@ -130,6 +130,17 @@ void cv::gpu::OpticalFlowDual_TVL1_GPU::operator ()(const GpuMat& I0, const GpuM
             gpu::multiply(u1s[s], Scalar::all(0.5), u1s[s]);
             gpu::multiply(u2s[s], Scalar::all(0.5), u2s[s]);
         }
+        else
+        {
+            u1s[s].create(I0s[s].size(), CV_32FC1);
+            u2s[s].create(I0s[s].size(), CV_32FC1);
+        }
+    }
+
+    if (!useInitialFlow)
+    {
+        u1s[nscales-1].setTo(Scalar::all(0));
+        u2s[nscales-1].setTo(Scalar::all(0));
     }
 
     // pyramidal structure for computing the optical flow
@@ -162,7 +173,7 @@ namespace tvl1flow
                    PtrStepSzf grad, PtrStepSzf rho_c,
                    PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22,
                    PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf error,
-                   float l_t, float theta);
+                   float l_t, float theta, bool calcError);
     void estimateDualVariables(PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22, float taut);
 }
 
@@ -174,17 +185,8 @@ void cv::gpu::OpticalFlowDual_TVL1_GPU::procOneScale(const GpuMat& I0, const Gpu
 
     CV_DbgAssert( I1.size() == I0.size() );
     CV_DbgAssert( I1.type() == I0.type() );
-    CV_DbgAssert( u1.empty() || u1.size() == I0.size() );
+    CV_DbgAssert( u1.size() == I0.size() );
     CV_DbgAssert( u2.size() == u1.size() );
-
-    if (u1.empty())
-    {
-        u1.create(I0.size(), CV_32FC1);
-        u1.setTo(Scalar::all(0));
-
-        u2.create(I0.size(), CV_32FC1);
-        u2.setTo(Scalar::all(0));
-    }
 
     GpuMat I1x = I1x_buf(Rect(0, 0, I0.cols, I0.rows));
     GpuMat I1y = I1y_buf(Rect(0, 0, I0.cols, I0.rows));
@@ -216,11 +218,24 @@ void cv::gpu::OpticalFlowDual_TVL1_GPU::procOneScale(const GpuMat& I0, const Gpu
         warpBackward(I0, I1, I1x, I1y, u1, u2, I1w, I1wx, I1wy, grad, rho_c);
 
         double error = numeric_limits<double>::max();
+        double prevError = 0.0;
         for (int n = 0; error > scaledEpsilon && n < iterations; ++n)
         {
-            estimateU(I1wx, I1wy, grad, rho_c, p11, p12, p21, p22, u1, u2, diff, l_t, static_cast<float>(theta));
+            // some tweaks to make sum operation less frequently
+            bool calcError = (epsilon > 0) && (n & 0x1) && (prevError < scaledEpsilon);
 
-            error = gpu::sum(diff, norm_buf)[0];
+            estimateU(I1wx, I1wy, grad, rho_c, p11, p12, p21, p22, u1, u2, diff, l_t, static_cast<float>(theta), calcError);
+
+            if (calcError)
+            {
+                error = gpu::sum(diff, norm_buf)[0];
+                prevError = error;
+            }
+            else
+            {
+                error = numeric_limits<double>::max();
+                prevError -= scaledEpsilon;
+            }
 
             estimateDualVariables(u1, u2, p11, p12, p21, p22, taut);
         }

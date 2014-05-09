@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 '''
 Wiener deconvolution.
@@ -117,4 +117,3 @@ if __name__ == '__main__':
         if ch == ord(' '):
             defocus = not defocus
             update(None)
-

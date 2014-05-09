@@ -176,10 +176,11 @@ macro(android_get_compatible_target VAR)
 endmacro()
 
 unset(__android_project_chain CACHE)
-#add_android_project(target_name ${path} NATIVE_DEPS opencv_core LIBRARY_DEPS ${OpenCV_BINARY_DIR} SDK_TARGET 11)
+
+# add_android_project(target_name ${path} NATIVE_DEPS opencv_core LIBRARY_DEPS ${OpenCV_BINARY_DIR} SDK_TARGET 11)
 macro(add_android_project target path)
   # parse arguments
-  set(android_proj_arglist NATIVE_DEPS LIBRARY_DEPS SDK_TARGET IGNORE_JAVA IGNORE_MANIFEST)
+  set(android_proj_arglist NATIVE_DEPS LIBRARY_DEPS SDK_TARGET IGNORE_JAVA IGNORE_MANIFEST EMBED_CUDA FORCE_EMBED_OPENCV)
   set(__varname "android_proj_")
   foreach(v ${android_proj_arglist})
     set(${__varname}${v} "")
@@ -210,6 +211,16 @@ macro(add_android_project target path)
     ocv_check_dependencies(${android_proj_NATIVE_DEPS})
   else()
     ocv_check_dependencies(${android_proj_NATIVE_DEPS} opencv_java)
+  endif()
+
+  if(EXISTS "${path}/jni/Android.mk" )
+    # find if native_app_glue is used
+    file(STRINGS "${path}/jni/Android.mk" NATIVE_APP_GLUE REGEX ".*(call import-module,android/native_app_glue)" )
+    if(NATIVE_APP_GLUE)
+      if(ANDROID_NATIVE_API_LEVEL LESS 9 OR NOT EXISTS "${ANDROID_NDK}/sources/android/native_app_glue")
+        set(OCV_DEPENDENCIES_FOUND FALSE)
+      endif()
+    endif()
   endif()
 
   if(OCV_DEPENDENCIES_FOUND AND android_proj_sdk_target AND ANDROID_EXECUTABLE AND ANT_EXECUTABLE AND ANDROID_TOOLS_Pkg_Revision GREATER 13 AND EXISTS "${path}/${ANDROID_MANIFEST_FILE}")
@@ -264,12 +275,20 @@ macro(add_android_project target path)
     ocv_list_filterout(android_proj_jni_files "\\\\.svn")
 
     if(android_proj_jni_files AND EXISTS ${path}/jni/Android.mk AND NOT DEFINED JNI_LIB_NAME)
+      # find local module name in Android.mk file to build native lib
       file(STRINGS "${path}/jni/Android.mk" JNI_LIB_NAME REGEX "LOCAL_MODULE[ ]*:=[ ]*.*" )
       string(REGEX REPLACE "LOCAL_MODULE[ ]*:=[ ]*([a-zA-Z_][a-zA-Z_0-9]*)[ ]*" "\\1" JNI_LIB_NAME "${JNI_LIB_NAME}")
 
       if(JNI_LIB_NAME)
         ocv_include_modules_recurse(${android_proj_NATIVE_DEPS})
         ocv_include_directories("${path}/jni")
+
+        if (NATIVE_APP_GLUE)
+          include_directories(${ANDROID_NDK}/sources/android/native_app_glue)
+          list(APPEND android_proj_jni_files ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
+          ocv_warnings_disable(CMAKE_C_FLAGS -Wstrict-prototypes -Wunused-parameter -Wmissing-prototypes)
+          set(android_proj_NATIVE_DEPS ${android_proj_NATIVE_DEPS} android)
+        endif()
 
         add_library(${JNI_LIB_NAME} MODULE ${android_proj_jni_files})
         target_link_libraries(${JNI_LIB_NAME} ${OPENCV_LINKER_LIBS} ${android_proj_NATIVE_DEPS})
@@ -280,9 +299,49 @@ macro(add_android_project target path)
             )
 
         get_target_property(android_proj_jni_location "${JNI_LIB_NAME}" LOCATION)
-    if (NOT (CMAKE_BUILD_TYPE MATCHES "debug"))
-        add_custom_command(TARGET ${JNI_LIB_NAME} POST_BUILD COMMAND ${CMAKE_STRIP} --strip-unneeded "${android_proj_jni_location}")
-    endif()
+        if (NOT (CMAKE_BUILD_TYPE MATCHES "debug"))
+            add_custom_command(TARGET ${JNI_LIB_NAME} POST_BUILD COMMAND ${CMAKE_STRIP} --strip-unneeded "${android_proj_jni_location}")
+        endif()
+      endif()
+
+      # copy opencv_java, tbb if it is shared and dynamicuda if present if FORCE_EMBED_OPENCV flag is set
+      if(android_proj_FORCE_EMBED_OPENCV)
+        set(native_deps ${android_proj_NATIVE_DEPS})
+        # filter out gpu module as it is always static library on Android
+        list(REMOVE_ITEM native_deps "opencv_gpu")
+        if(ENABLE_DYNAMIC_CUDA)
+          list(APPEND native_deps "opencv_dynamicuda")
+        endif()
+        foreach(lib ${native_deps})
+          get_property(f TARGET ${lib} PROPERTY LOCATION)
+          get_filename_component(f_name ${f} NAME)
+          add_custom_command(
+            OUTPUT "${android_proj_bin_dir}/libs/${ANDROID_NDK_ABI_NAME}/${f_name}"
+            COMMAND ${CMAKE_COMMAND} -E copy "${f}" "${android_proj_bin_dir}/libs/${ANDROID_NDK_ABI_NAME}/${f_name}"
+            DEPENDS "${lib}" VERBATIM
+            COMMENT "Embedding ${f}")
+            list(APPEND android_proj_file_deps "${android_proj_bin_dir}/libs/${ANDROID_NDK_ABI_NAME}/${f_name}")
+        endforeach()
+      endif()
+
+      # copy all needed CUDA libs to project if EMBED_CUDA flag is present
+      if(android_proj_EMBED_CUDA)
+        set(android_proj_culibs ${CUDA_npp_LIBRARY_ABS} ${CUDA_LIBRARIES_ABS})
+        if(HAVE_CUFFT)
+          list(INSERT android_proj_culibs 0 ${CUDA_cufft_LIBRARY_ABS})
+        endif()
+        if(HAVE_CUBLAS)
+          list(INSERT android_proj_culibs 0 ${CUDA_cublas_LIBRARY_ABS})
+        endif()
+        foreach(lib ${android_proj_culibs})
+          get_filename_component(f "${lib}" NAME)
+          add_custom_command(
+            OUTPUT "${android_proj_bin_dir}/libs/${ANDROID_NDK_ABI_NAME}/${f}"
+            COMMAND ${CMAKE_COMMAND} -E copy "${lib}" "${android_proj_bin_dir}/libs/${ANDROID_NDK_ABI_NAME}/${f}"
+            DEPENDS "${lib}" VERBATIM
+            COMMENT "Embedding ${f}")
+          list(APPEND android_proj_file_deps "${android_proj_bin_dir}/libs/${ANDROID_NDK_ABI_NAME}/${f}")
+        endforeach()
       endif()
     endif()
 
@@ -325,20 +384,20 @@ macro(add_android_project target path)
     add_custom_command(TARGET ${target} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy "${android_proj_bin_dir}/bin/${target}-debug.apk" "${OpenCV_BINARY_DIR}/bin/${target}.apk")
     if(INSTALL_ANDROID_EXAMPLES AND "${target}" MATCHES "^example-")
       #apk
-      install(FILES "${OpenCV_BINARY_DIR}/bin/${target}.apk" DESTINATION "samples" COMPONENT main)
+      install(FILES "${OpenCV_BINARY_DIR}/bin/${target}.apk" DESTINATION "samples" COMPONENT samples)
       get_filename_component(sample_dir "${path}" NAME)
       #java part
       list(REMOVE_ITEM android_proj_files ${ANDROID_MANIFEST_FILE})
       foreach(f ${android_proj_files} ${ANDROID_MANIFEST_FILE})
         get_filename_component(install_subdir "${f}" PATH)
-        install(FILES "${android_proj_bin_dir}/${f}" DESTINATION "samples/${sample_dir}/${install_subdir}" COMPONENT main)
+        install(FILES "${android_proj_bin_dir}/${f}" DESTINATION "samples/${sample_dir}/${install_subdir}" COMPONENT samples)
       endforeach()
       #jni part + eclipse files
       file(GLOB_RECURSE jni_files RELATIVE "${path}" "${path}/jni/*" "${path}/.cproject")
       ocv_list_filterout(jni_files "\\\\.svn")
       foreach(f ${jni_files} ".classpath" ".project" ".settings/org.eclipse.jdt.core.prefs")
         get_filename_component(install_subdir "${f}" PATH)
-        install(FILES "${path}/${f}" DESTINATION "samples/${sample_dir}/${install_subdir}" COMPONENT main)
+        install(FILES "${path}/${f}" DESTINATION "samples/${sample_dir}/${install_subdir}" COMPONENT samples)
       endforeach()
       #update proj
       if(android_proj_lib_deps_commands)
@@ -346,9 +405,9 @@ macro(add_android_project target path)
       endif()
       install(CODE "EXECUTE_PROCESS(COMMAND ${ANDROID_EXECUTABLE} --silent update project --path . --target \"${android_proj_sdk_target}\" --name \"${target}\" ${inst_lib_opt}
                                     WORKING_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/samples/${sample_dir}\"
-                                   )"  COMPONENT main)
+                                   )"  COMPONENT samples)
       #empty 'gen'
-      install(CODE "MAKE_DIRECTORY(\"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/samples/${sample_dir}/gen\")" COMPONENT main)
+      install(CODE "MAKE_DIRECTORY(\"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/samples/${sample_dir}/gen\")" COMPONENT samples)
     endif()
   endif()
 endmacro()

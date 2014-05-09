@@ -25,7 +25,7 @@
 //
 //   * Redistribution's in binary form must reproduce the above copyright notice,
 //     this list of conditions and the following disclaimer in the documentation
-//     and/or other oclMaterials provided with the distribution.
+//     and/or other materials provided with the distribution.
 //
 //   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
@@ -43,11 +43,9 @@
 //
 //M*/
 
-#include <iomanip>
 #include "precomp.hpp"
-#include "mcwutil.hpp"
+#include "opencl_kernels.hpp"
 
-using namespace std;
 using namespace cv;
 using namespace cv::ocl;
 
@@ -55,9 +53,6 @@ namespace cv
 {
     namespace ocl
     {
-        ///////////////////////////OpenCL kernel strings///////////////////////////
-        extern const char *interpolate_frames;
-
         namespace interpolate
         {
             //The following are ported from NPP_staging.cu
@@ -236,6 +231,5 @@ void interpolate::bindImgTex(const oclMat &img, cl_mem &texture)
     {
         openCLFree(texture);
     }
-	texture = bindTexture(img);
+    texture = bindTexture(img);
 }
-

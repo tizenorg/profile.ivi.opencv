@@ -8,6 +8,7 @@ import org.opencv.highgui.VideoCapture;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.ViewGroup.LayoutParams;
 
 /**
  * This class is an implementation of a bridge between SurfaceView and native OpenCV camera.
@@ -21,6 +22,7 @@ public class NativeCameraView extends CameraBridgeViewBase {
     private Thread mThread;
 
     protected VideoCapture mCamera;
+    protected NativeCameraFrame mFrame;
 
     public NativeCameraView(Context context, int cameraId) {
         super(context, cameraId);
@@ -52,14 +54,16 @@ public class NativeCameraView extends CameraBridgeViewBase {
         /* 1. We need to stop thread which updating the frames
          * 2. Stop camera and release it
          */
-        try {
-            mStopThread = true;
-            mThread.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            mThread =  null;
-            mStopThread = false;
+        if (mThread != null) {
+            try {
+                mStopThread = true;
+                mThread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                mThread =  null;
+                mStopThread = false;
+            }
         }
 
         /* Now release camera */
@@ -94,6 +98,8 @@ public class NativeCameraView extends CameraBridgeViewBase {
             if (mCamera.isOpened() == false)
                 return false;
 
+            mFrame = new NativeCameraFrame(mCamera);
+
             java.util.List<Size> sizes = mCamera.getSupportedPreviewSizes();
 
             /* Select the size that fits surface considering maximum size allowed */
@@ -101,6 +107,11 @@ public class NativeCameraView extends CameraBridgeViewBase {
 
             mFrameWidth = (int)frameSize.width;
             mFrameHeight = (int)frameSize.height;
+
+            if ((getLayoutParams().width == LayoutParams.MATCH_PARENT) && (getLayoutParams().height == LayoutParams.MATCH_PARENT))
+                mScale = Math.min(((float)height)/mFrameHeight, ((float)width)/mFrameWidth);
+            else
+                mScale = 0;
 
             if (mFpsMeter != null) {
                 mFpsMeter.setResolution(mFrameWidth, mFrameHeight);
@@ -119,23 +130,22 @@ public class NativeCameraView extends CameraBridgeViewBase {
 
     private void releaseCamera() {
         synchronized (this) {
-            if (mCamera != null) {
-                mCamera.release();
-            }
+            if (mFrame != null) mFrame.release();
+            if (mCamera != null) mCamera.release();
         }
     }
 
-    private class NativeCameraFrame implements CvCameraViewFrame {
+    private static class NativeCameraFrame implements CvCameraViewFrame {
 
         @Override
         public Mat rgba() {
-            mCamera.retrieve(mRgba, Highgui.CV_CAP_ANDROID_COLOR_FRAME_RGBA);
+            mCapture.retrieve(mRgba, Highgui.CV_CAP_ANDROID_COLOR_FRAME_RGBA);
             return mRgba;
         }
 
         @Override
         public Mat gray() {
-            mCamera.retrieve(mGray, Highgui.CV_CAP_ANDROID_GREY_FRAME);
+            mCapture.retrieve(mGray, Highgui.CV_CAP_ANDROID_GREY_FRAME);
             return mGray;
         }
 
@@ -145,15 +155,17 @@ public class NativeCameraView extends CameraBridgeViewBase {
             mRgba = new Mat();
         }
 
+        public void release() {
+            if (mGray != null) mGray.release();
+            if (mRgba != null) mRgba.release();
+        }
+
         private VideoCapture mCapture;
         private Mat mRgba;
         private Mat mGray;
     };
 
     private class CameraWorker implements Runnable {
-
-        private Mat mRgba = new Mat();
-        private Mat mGray = new Mat();
 
         public void run() {
             do {
@@ -162,8 +174,7 @@ public class NativeCameraView extends CameraBridgeViewBase {
                     break;
                 }
 
-                deliverAndDrawFrame(new NativeCameraFrame(mCamera));
-
+                deliverAndDrawFrame(mFrame);
             } while (!mStopThread);
         }
     }

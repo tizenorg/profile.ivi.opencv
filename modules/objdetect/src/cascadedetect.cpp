@@ -114,24 +114,6 @@ struct Logger
 namespace cv
 {
 
-// class for grouping object candidates, detected by Cascade Classifier, HOG etc.
-// instance of the class is to be passed to cv::partition (see cxoperations.hpp)
-class CV_EXPORTS SimilarRects
-{
-public:
-    SimilarRects(double _eps) : eps(_eps) {}
-    inline bool operator()(const Rect& r1, const Rect& r2) const
-    {
-        double delta = eps*(std::min(r1.width, r2.width) + std::min(r1.height, r2.height))*0.5;
-        return std::abs(r1.x - r2.x) <= delta &&
-        std::abs(r1.y - r2.y) <= delta &&
-        std::abs(r1.x + r1.width - r2.x - r2.width) <= delta &&
-        std::abs(r1.y + r1.height - r2.y - r2.height) <= delta;
-    }
-    double eps;
-};
-
-
 void groupRectangles(vector<Rect>& rectList, int groupThreshold, double eps, vector<int>* weights, vector<double>* levelWeights)
 {
     if( groupThreshold <= 0 || rectList.empty() )
@@ -1141,7 +1123,7 @@ void CascadeClassifier::detectMultiScale( const Mat& image, vector<Rect>& object
 
         Size windowSize( cvRound(originalWindowSize.width*factor), cvRound(originalWindowSize.height*factor) );
         Size scaledImageSize( cvRound( grayImage.cols/factor ), cvRound( grayImage.rows/factor ) );
-        Size processingRectSize( scaledImageSize.width - originalWindowSize.width + 1, scaledImageSize.height - originalWindowSize.height + 1 );
+        Size processingRectSize( scaledImageSize.width - originalWindowSize.width, scaledImageSize.height - originalWindowSize.height );
 
         if( processingRectSize.width <= 0 || processingRectSize.height <= 0 )
             break;
@@ -1165,15 +1147,10 @@ void CascadeClassifier::detectMultiScale( const Mat& image, vector<Rect>& object
 
         int stripCount, stripSize;
 
-    #ifdef HAVE_TBB
         const int PTS_PER_THREAD = 1000;
         stripCount = ((processingRectSize.width/yStep)*(processingRectSize.height + yStep-1)/yStep + PTS_PER_THREAD/2)/PTS_PER_THREAD;
         stripCount = std::min(std::max(stripCount, 1), 100);
         stripSize = (((processingRectSize.height + stripCount - 1)/stripCount + yStep-1)/yStep)*yStep;
-    #else
-        stripCount = 1;
-        stripSize = processingRectSize.height;
-    #endif
 
         if( !detectSingleScale( scaledImage, stripCount, processingRectSize, stripSize, yStep, factor, candidates,
             rejectLevels, levelWeights, outputRejectLevels ) )

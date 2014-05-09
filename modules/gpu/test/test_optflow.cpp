@@ -7,10 +7,11 @@
 //  copy or use the software.
 //
 //
-//                        Intel License Agreement
+//                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2000, Intel Corporation, all rights reserved.
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
 // Third party copyrights are property of their respective owners.
 //
 // Redistribution and use in source and binary forms, with or without modification,
@@ -23,7 +24,7 @@
 //     this list of conditions and the following disclaimer in the documentation
 //     and/or other materials provided with the distribution.
 //
-//   * The name of Intel Corporation may not be used to endorse or promote products
+//   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
 //
 // This software is provided by the copyright holders and contributors "as is" and
@@ -42,6 +43,8 @@
 #include "test_precomp.hpp"
 
 #ifdef HAVE_CUDA
+
+using namespace cvtest;
 
 //////////////////////////////////////////////////////
 // BroxOpticalFlow
@@ -99,8 +102,8 @@ GPU_TEST_P(BroxOpticalFlow, Regression)
     for (int i = 0; i < v_gold.rows; ++i)
         f.read(v_gold.ptr<char>(i), v_gold.cols * sizeof(float));
 
-    EXPECT_MAT_NEAR(u_gold, u, 0);
-    EXPECT_MAT_NEAR(v_gold, v, 0);
+    EXPECT_MAT_SIMILAR(u_gold, u, 1e-3);
+    EXPECT_MAT_SIMILAR(v_gold, v, 1e-3);
 #else
     std::ofstream f(fname.c_str(), std::ios_base::binary);
 
@@ -330,7 +333,7 @@ namespace
 {
     IMPLEMENT_PARAM_CLASS(PyrScale, double)
     IMPLEMENT_PARAM_CLASS(PolyN, int)
-    CV_FLAGS(FarnebackOptFlowFlags, 0, cv::OPTFLOW_FARNEBACK_GAUSSIAN)
+    CV_FLAGS(FarnebackOptFlowFlags, 0, OPTFLOW_FARNEBACK_GAUSSIAN)
     IMPLEMENT_PARAM_CLASS(UseInitFlow, bool)
 }
 
@@ -480,13 +483,15 @@ GPU_TEST_P(OpticalFlowBM, Accuracy)
 
     cv::Mat frame0 = readImage("opticalflow/rubberwhale1.png", cv::IMREAD_GRAYSCALE);
     ASSERT_FALSE(frame0.empty());
+    cv::resize(frame0, frame0, cv::Size(), 0.5, 0.5);
 
     cv::Mat frame1 = readImage("opticalflow/rubberwhale2.png", cv::IMREAD_GRAYSCALE);
     ASSERT_FALSE(frame1.empty());
+    cv::resize(frame1, frame1, cv::Size(), 0.5, 0.5);
 
-    cv::Size block_size(16, 16);
+    cv::Size block_size(8, 8);
     cv::Size shift_size(1, 1);
-    cv::Size max_range(16, 16);
+    cv::Size max_range(8, 8);
 
     cv::gpu::GpuMat d_velx, d_vely, buf;
     cv::gpu::calcOpticalFlowBM(loadMat(frame0), loadMat(frame1),

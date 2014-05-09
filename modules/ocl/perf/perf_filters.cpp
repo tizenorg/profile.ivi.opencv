@@ -10,15 +10,13 @@
 //                           License Agreement
 //                For Open Source Computer Vision Library
 //
-// Copyright (C) 2010-2012, Institute Of Software Chinese Academy Of Science, all rights reserved.
+// Copyright (C) 2010-2012, Multicoreware, Inc., all rights reserved.
 // Copyright (C) 2010-2012, Advanced Micro Devices, Inc., all rights reserved.
 // Third party copyrights are property of their respective owners.
 //
 // @Authors
-//    Niko Li, newlife20080214@gmail.com
-//    Jia Haipeng, jiahaipeng95@gmail.com
-//    Zero Lin, Zero.Lin@amd.com
-//    Zhang Ying, zhangying913@gmail.com
+//    Fangfang Bai, fangfang@multicorewareinc.com
+//    Jin Ma,       jin@multicorewareinc.com
 //
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -28,12 +26,12 @@
 //
 //   * Redistribution's in binary form must reproduce the above copyright notice,
 //     this list of conditions and the following disclaimer in the documentation
-//     and/or other oclMaterials provided with the distribution.
+//     and/or other materials provided with the distribution.
 //
 //   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
 //
-// This software is provided by the copyright holders and contributors "as is" and
+// This software is provided by the copyright holders and contributors as is and
 // any express or implied warranties, including, but not limited to, the implied
 // warranties of merchantability and fitness for a particular purpose are disclaimed.
 // In no event shall the Intel Corporation or contributors be liable for any direct,
@@ -45,1165 +43,415 @@
 // the use of this software, even if advised of the possibility of such damage.
 //
 //M*/
+#include "perf_precomp.hpp"
 
-#include "precomp.hpp"
+using namespace perf;
+using std::tr1::get;
+using std::tr1::tuple;
 
-#ifdef HAVE_OPENCL
+typedef tuple<Size, MatType, int> FilterParams;
+typedef TestBaseWithParam<FilterParams> FilterFixture;
 
-using namespace cvtest;
-using namespace testing;
-using namespace std;
-//using namespace cv::ocl;
+///////////// Blur////////////////////////
 
-PARAM_TEST_CASE(FilterTestBase, MatType, bool)
+typedef FilterFixture BlurFixture;
+
+OCL_PERF_TEST_P(BlurFixture, Blur,
+                ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, OCL_PERF_ENUM(3, 5)))
 {
-    int type;
-    cv::Scalar val;
+    const FilterParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), ksize = get<2>(params), bordertype = BORDER_CONSTANT;
 
-    //src mat
-    cv::Mat mat1;
-    cv::Mat mat2;
-    cv::Mat mask;
-    cv::Mat dst;
-    cv::Mat dst1; //bak, for two outputs
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
 
-    // set up roi
-    int roicols;
-    int roirows;
-    int src1x;
-    int src1y;
-    int src2x;
-    int src2y;
-    int dstx;
-    int dsty;
-    int maskx;
-    int masky;
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
 
-    //src mat with roi
-    cv::Mat mat1_roi;
-    cv::Mat mat2_roi;
-    cv::Mat mask_roi;
-    cv::Mat dst_roi;
-    cv::Mat dst1_roi; //bak
-    //std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-    cv::ocl::oclMat gdst1_whole; //bak
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat1;
-    cv::ocl::oclMat gmat2;
-    cv::ocl::oclMat gdst;
-    cv::ocl::oclMat gdst1;   //bak
-    cv::ocl::oclMat gmask;
-
-    virtual void SetUp()
+    if (RUN_OCL_IMPL)
     {
-        type = GET_PARAM(0);
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size(MWIDTH, MHEIGHT);
+        OCL_TEST_CYCLE() cv::ocl::blur(oclSrc, oclDst, Size(ksize, ksize), Point(-1, -1), bordertype);
 
-        mat1 = randomMat(rng, size, type, 5, 16, false);
-        mat2 = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        dst1  = randomMat(rng, size, type, 5, 16, false);
-        mask = randomMat(rng, size, CV_8UC1, 0, 2,  false);
+        oclDst.download(dst);
 
-        cv::threshold(mask, mask, 0.5, 255., CV_8UC1);
-
-        val = cv::Scalar(rng.uniform(-10.0, 10.0), rng.uniform(-10.0, 10.0), rng.uniform(-10.0, 10.0), rng.uniform(-10.0, 10.0));
+        SANITY_CHECK(dst, 1 + DBL_EPSILON);
     }
-
-    void random_roi()
+    else if (RUN_PLAIN_IMPL)
     {
-        cv::RNG &rng = TS::ptr()->get_rng();
+        TEST_CYCLE() cv::blur(src, dst, Size(ksize, ksize), Point(-1, -1), bordertype);
 
-        //randomize ROI
-        roicols = rng.uniform(1, mat1.cols);
-        roirows = rng.uniform(1, mat1.rows);
-        src1x   = rng.uniform(0, mat1.cols - roicols);
-        src1y   = rng.uniform(0, mat1.rows - roirows);
-        src2x   = rng.uniform(0, mat2.cols - roicols);
-        src2y   = rng.uniform(0, mat2.rows - roirows);
-        dstx    = rng.uniform(0, dst.cols  - roicols);
-        dsty    = rng.uniform(0, dst.rows  - roirows);
-        maskx   = rng.uniform(0, mask.cols - roicols);
-        masky   = rng.uniform(0, mask.rows - roirows);
-
-        mat1_roi = mat1(Rect(src1x, src1y, roicols, roirows));
-        mat2_roi = mat2(Rect(src2x, src2y, roicols, roirows));
-        mask_roi = mask(Rect(maskx, masky, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-        dst1_roi = dst1(Rect(dstx, dsty, roicols, roirows));
-
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-        gdst1_whole = dst1;
-        gdst1 = gdst1_whole(Rect(dstx, dsty, roicols, roirows));
-
-        gmat1 = mat1_roi;
-        gmat2 = mat2_roi;
-        gmask = mask_roi;
+        SANITY_CHECK(dst, 1 + DBL_EPSILON);
     }
-
-};
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-// blur
-
-PARAM_TEST_CASE(Blur, MatType, cv::Size, int)
-{
-    int type;
-    cv::Size ksize;
-    int bordertype;
-
-    //src mat
-    cv::Mat mat1;
-    cv::Mat dst;
-
-    // set up roi
-    int roicols;
-    int roirows;
-    int src1x;
-    int src1y;
-    int dstx;
-    int dsty;
-
-    //src mat with roi
-    cv::Mat mat1_roi;
-    cv::Mat dst_roi;
-    //std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat1;
-    cv::ocl::oclMat gdst;
-
-    virtual void SetUp()
-    {
-        type = GET_PARAM(0);
-        ksize = GET_PARAM(1);
-        bordertype = GET_PARAM(2);
-
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size(MWIDTH, MHEIGHT);
-
-        mat1 = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
-        ////if you want to use undefault device, set it here
-        ////setDevice(oclinfo[0]);
-        //cv::ocl::setBinpath(CLBINPATH);
-    }
-
-
-    void Has_roi(int b)
-    {
-        if(b)
-        {
-            roicols =  mat1.cols - 1;
-            roirows = mat1.rows - 1;
-            src1x   = 1;
-            src1y   = 1;
-            dstx    = 1;
-            dsty    = 1;
-        }
-        else
-        {
-            roicols = mat1.cols;
-            roirows = mat1.rows;
-            src1x = 0;
-            src1y = 0;
-            dstx = 0;
-            dsty = 0;
-        };
-
-        mat1_roi = mat1(Rect(src1x, src1y, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-
-    }
-
-};
-
-TEST_P(Blur, Mat)
-{
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
-    {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::blur(mat1_roi, dst_roi, ksize, Point(-1, -1), bordertype);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
-
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-            gmat1 = mat1_roi;
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::blur(gmat1, gdst, ksize, Point(-1, -1), bordertype);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
-    {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat1 = mat1_roi;
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::blur(gmat1, gdst, ksize, Point(-1, -1), bordertype);
-    };
-#endif
-
+    else
+        OCL_PERF_ELSE
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//Laplacian
+///////////// Laplacian////////////////////////
 
-PARAM_TEST_CASE(LaplacianTestBase, MatType, int)
+typedef FilterFixture LaplacianFixture;
+
+OCL_PERF_TEST_P(LaplacianFixture, Laplacian,
+                ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, OCL_PERF_ENUM(1, 3)))
 {
-    int type;
-    int ksize;
+    const FilterParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), ksize = get<2>(params);
 
-    //src mat
-    cv::Mat mat;
-    cv::Mat dst;
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
 
-    // set up roi
-    int roicols;
-    int roirows;
-    int srcx;
-    int srcy;
-    int dstx;
-    int dsty;
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
 
-    //src mat with roi
-    cv::Mat mat_roi;
-    cv::Mat dst_roi;
-    std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat;
-    cv::ocl::oclMat gdst;
-
-    virtual void SetUp()
+    if (RUN_OCL_IMPL)
     {
-        type = GET_PARAM(0);
-        ksize = GET_PARAM(1);
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size = cv::Size(MWIDTH, MHEIGHT);
+        OCL_TEST_CYCLE() cv::ocl::Laplacian(oclSrc, oclDst, -1, ksize, 1);
 
-        mat  = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
-        ////if you want to use undefault device, set it here
-        ////setDevice(oclinfo[0]);
-        //cv::ocl::setBinpath(CLBINPATH);
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst, 5e-3);
     }
-
-    void Has_roi(int b)
+    else if (RUN_PLAIN_IMPL)
     {
-        if(b)
-        {
-            roicols =  mat.cols - 1;
-            roirows = mat.rows - 1;
-            srcx   = 1;
-            srcy   = 1;
-            dstx    = 1;
-            dsty    = 1;
-        }
-        else
-        {
-            roicols = mat.cols;
-            roirows = mat.rows;
-            srcx = 0;
-            srcy = 0;
-            dstx = 0;
-            dsty = 0;
-        };
+        TEST_CYCLE() cv::Laplacian(src, dst, -1, ksize, 1);
 
-        mat_roi = mat(Rect(srcx, srcy, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-
+        SANITY_CHECK(dst, 5e-3);
     }
-
-};
-
-struct Laplacian : LaplacianTestBase {};
-
-TEST_P(Laplacian, Accuracy)
-{
-
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
-    {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::Laplacian(mat_roi, dst_roi, -1, ksize, 1);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
-
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-            gmat = mat_roi;
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::Laplacian(gmat, gdst, -1, ksize, 1);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
-    {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat = mat_roi;
-
-
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::Laplacian(gmat, gdst, -1, ksize, 1);
-    };
-#endif
+    else
+        OCL_PERF_ELSE
 }
 
+///////////// Erode ////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-// erode & dilate
+typedef FilterFixture ErodeFixture;
 
-PARAM_TEST_CASE(ErodeDilateBase, MatType, bool)
+OCL_PERF_TEST_P(ErodeFixture, Erode,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, OCL_PERF_ENUM(3, 5)))
 {
-    int type;
-    //int iterations;
+    const FilterParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), ksize = get<2>(params);
+    const Mat ker = getStructuringElement(MORPH_RECT, Size(ksize, ksize));
 
-    //erode or dilate kernel
-    cv::Mat kernel;
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
 
-    //src mat
-    cv::Mat mat1;
-    cv::Mat dst;
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst).in(ker);
 
-    // set up roi
-    int roicols;
-    int roirows;
-    int src1x;
-    int src1y;
-    int dstx;
-    int dsty;
-
-    //src mat with roi
-    cv::Mat mat1_roi;
-    cv::Mat dst_roi;
-    std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat1;
-    cv::ocl::oclMat gdst;
-
-    virtual void SetUp()
+    if (RUN_OCL_IMPL)
     {
-        type = GET_PARAM(0);
-        //  iterations = GET_PARAM(1);
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type), oclKer(ker);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size = cv::Size(MWIDTH, MHEIGHT);
+        OCL_TEST_CYCLE() cv::ocl::erode(oclSrc, oclDst, oclKer);
 
-        mat1 = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        //		rng.fill(kernel, cv::RNG::UNIFORM, cv::Scalar::all(0), cv::Scalar::all(3));
-        kernel = randomMat(rng, Size(3, 3), CV_8UC1, 0, 3, false);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
-        ////if you want to use undefault device, set it here
-        ////setDevice(oclinfo[0]);
-        //cv::ocl::setBinpath(CLBINPATH);
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst);
     }
-
-    void Has_roi(int b)
+    else if (RUN_PLAIN_IMPL)
     {
-        if(b)
-        {
-            roicols =  mat1.cols - 1;
-            roirows = mat1.rows - 1;
-            src1x   = 1;
-            src1y   = 1;
-            dstx    = 1;
-            dsty    = 1;
-        }
-        else
-        {
-            roicols = mat1.cols;
-            roirows = mat1.rows;
-            src1x = 0;
-            src1y = 0;
-            dstx = 0;
-            dsty = 0;
-        };
+        TEST_CYCLE() cv::erode(src, dst, ker);
 
-        mat1_roi = mat1(Rect(src1x, src1y, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-
+        SANITY_CHECK(dst);
     }
-
-};
-
-// erode
-
-struct Erode : ErodeDilateBase {};
-
-TEST_P(Erode, Mat)
-{
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
-    {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::erode(mat1_roi, dst_roi, kernel);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
-
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-            gmat1 = mat1_roi;
-
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::erode(gmat1, gdst, kernel);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
-    {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat1 = mat1_roi;
-
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::erode(gmat1, gdst, kernel);
-    };
-#endif
-
+    else
+        OCL_PERF_ELSE
 }
 
-// dilate
+///////////// Dilate ////////////////////
 
-struct Dilate : ErodeDilateBase {};
+typedef FilterFixture DilateFixture;
 
-TEST_P(Dilate, Mat)
+OCL_PERF_TEST_P(DilateFixture, Dilate,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, OCL_PERF_ENUM(3, 5)))
 {
+    const FilterParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), ksize = get<2>(params);
+    const Mat ker = getStructuringElement(MORPH_RECT, Size(ksize, ksize));
 
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
+
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst).in(ker);
+
+    if (RUN_OCL_IMPL)
     {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::dilate(mat1_roi, dst_roi, kernel);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type), oclKer(ker);
 
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
+        OCL_TEST_CYCLE() cv::ocl::dilate(oclSrc, oclDst, oclKer);
 
-            gmat1 = mat1_roi;
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::dilate(gmat1, gdst, kernel);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
+        oclDst.download(dst);
 
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
+        SANITY_CHECK(dst);
     }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
+    else if (RUN_PLAIN_IMPL)
     {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat1 = mat1_roi;
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::dilate(gmat1, gdst, kernel);
-    };
-#endif
+        TEST_CYCLE() cv::dilate(src, dst, ker);
 
+        SANITY_CHECK(dst);
+    }
+    else
+        OCL_PERF_ELSE
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-// Sobel
+///////////// MorphologyEx ////////////////////
 
-PARAM_TEST_CASE(Sobel, MatType, int, int, int, int)
+CV_ENUM(MorphOp, MORPH_OPEN, MORPH_CLOSE, MORPH_GRADIENT, MORPH_TOPHAT, MORPH_BLACKHAT)
+
+typedef tuple<Size, MatType, MorphOp, int> MorphologyExParams;
+typedef TestBaseWithParam<MorphologyExParams> MorphologyExFixture;
+
+OCL_PERF_TEST_P(MorphologyExFixture, MorphologyEx,
+                ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, MorphOp::all(), OCL_PERF_ENUM(3, 5)))
 {
-    int type;
-    int dx, dy, ksize, bordertype;
+    const MorphologyExParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), op = get<2>(params), ksize = get<3>(params);
+    const Mat ker = getStructuringElement(MORPH_RECT, Size(ksize, ksize));
 
-    //src mat
-    cv::Mat mat1;
-    cv::Mat dst;
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
 
-    // set up roi
-    int roicols;
-    int roirows;
-    int src1x;
-    int src1y;
-    int dstx;
-    int dsty;
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst).in(ker);
 
-    //src mat with roi
-    cv::Mat mat1_roi;
-    cv::Mat dst_roi;
-    //std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat1;
-    cv::ocl::oclMat gdst;
-
-    virtual void SetUp()
+    if (RUN_OCL_IMPL)
     {
-        type = GET_PARAM(0);
-        dx = GET_PARAM(1);
-        dy = GET_PARAM(2);
-        ksize = GET_PARAM(3);
-        bordertype = GET_PARAM(4);
-        dx = 2;
-        dy = 0;
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type), oclKer(ker);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size = cv::Size(MWIDTH, MHEIGHT);
+        OCL_TEST_CYCLE() cv::ocl::morphologyEx(oclSrc, oclDst, op, oclKer);
 
-        mat1 = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
-        ////if you want to use undefault device, set it here
-        ////setDevice(oclinfo[0]);
-        //cv::ocl::setBinpath(CLBINPATH);
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst);
     }
-
-    void Has_roi(int b)
+    else if (RUN_PLAIN_IMPL)
     {
-        if(b)
-        {
-            roicols =  mat1.cols - 1;
-            roirows = mat1.rows - 1;
-            src1x   = 1;
-            src1y   = 1;
-            dstx    = 1;
-            dsty    = 1;
-        }
-        else
-        {
-            roicols = mat1.cols;
-            roirows = mat1.rows;
-            src1x = 0;
-            src1y = 0;
-            dstx = 0;
-            dsty = 0;
-        };
+        TEST_CYCLE() cv::morphologyEx(src, dst, op, ker);
 
-        mat1_roi = mat1(Rect(src1x, src1y, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-
+        SANITY_CHECK(dst);
     }
-
-};
-
-TEST_P(Sobel, Mat)
-{
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
-    {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::Sobel(mat1_roi, dst_roi, -1, dx, dy, ksize, /*scale*/0.00001,/*delta*/0, bordertype);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
-
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-            gmat1 = mat1_roi;
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::Sobel(gmat1, gdst, -1, dx, dy, ksize,/*scale*/0.00001,/*delta*/0, bordertype);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
-    {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat1 = mat1_roi;
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::Sobel(gmat1, gdst, -1, dx, dy, ksize,/*scale*/0.00001,/*delta*/0, bordertype);
-    };
-#endif
-
+    else
+        OCL_PERF_ELSE
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-// Scharr
+///////////// Sobel ////////////////////////
 
-PARAM_TEST_CASE(Scharr, MatType, int, int, int)
+typedef Size_MatType SobelFixture;
+
+OCL_PERF_TEST_P(SobelFixture, Sobel,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES))
 {
-    int type;
-    int dx, dy, bordertype;
+    const Size_MatType_t params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), dx = 1, dy = 1;
 
-    //src mat
-    cv::Mat mat1;
-    cv::Mat dst;
+    checkDeviceMaxMemoryAllocSize(srcSize, type, sizeof(float) * 2);
 
-    // set up roi
-    int roicols;
-    int roirows;
-    int src1x;
-    int src1y;
-    int dstx;
-    int dsty;
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
 
-    //src mat with roi
-    cv::Mat mat1_roi;
-    cv::Mat dst_roi;
-    //std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat1;
-    cv::ocl::oclMat gdst;
-
-    virtual void SetUp()
+    if (RUN_OCL_IMPL)
     {
-        type = GET_PARAM(0);
-        dx = GET_PARAM(1);
-        dy = GET_PARAM(2);
-        bordertype = GET_PARAM(3);
-        dx = 1;
-        dy = 0;
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size = cv::Size(MWIDTH, MHEIGHT);
+        OCL_TEST_CYCLE() cv::ocl::Sobel(oclSrc, oclDst, -1, dx, dy);
 
-        mat1 = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
-        ////if you want to use undefault device, set it here
-        ////setDevice(oclinfo[0]);
-        //cv::ocl::setBinpath(CLBINPATH);
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst, 1e-3);
     }
-
-    void Has_roi(int b)
+    else if (RUN_PLAIN_IMPL)
     {
-        if(b)
-        {
-            roicols =  mat1.cols - 1;
-            roirows = mat1.rows - 1;
-            src1x   = 1;
-            src1y   = 1;
-            dstx    = 1;
-            dsty    = 1;
-        }
-        else
-        {
-            roicols = mat1.cols;
-            roirows = mat1.rows;
-            src1x = 0;
-            src1y = 0;
-            dstx = 0;
-            dsty = 0;
-        };
+        TEST_CYCLE() cv::Sobel(src, dst, -1, dx, dy);
 
-        mat1_roi = mat1(Rect(src1x, src1y, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-
+        SANITY_CHECK(dst, 1e-3);
     }
-};
-
-TEST_P(Scharr, Mat)
-{
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
-    {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::Scharr(mat1_roi, dst_roi, -1, dx, dy, /*scale*/1,/*delta*/0, bordertype);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
-
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-            gmat1 = mat1_roi;
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::Scharr(gmat1, gdst, -1, dx, dy,/*scale*/1,/*delta*/0, bordertype);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
-    {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat1 = mat1_roi;
-
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::Scharr(gmat1, gdst, -1, dx, dy,/*scale*/1,/*delta*/0, bordertype);
-    };
-#endif
-
+    else
+        OCL_PERF_ELSE
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-// GaussianBlur
+///////////// Scharr ////////////////////////
 
-PARAM_TEST_CASE(GaussianBlur, MatType, cv::Size, int)
+typedef Size_MatType ScharrFixture;
+
+OCL_PERF_TEST_P(ScharrFixture, Scharr,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES))
 {
-    int type;
-    cv::Size ksize;
-    int bordertype;
+    const Size_MatType_t params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), dx = 1, dy = 0;
 
-    double sigma1, sigma2;
+    checkDeviceMaxMemoryAllocSize(srcSize, type, sizeof(float) * 2);
 
-    //src mat
-    cv::Mat mat1;
-    cv::Mat dst;
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
 
-    // set up roi
-    int roicols;
-    int roirows;
-    int src1x;
-    int src1y;
-    int dstx;
-    int dsty;
-
-    //src mat with roi
-    cv::Mat mat1_roi;
-    cv::Mat dst_roi;
-    //std::vector<cv::ocl::Info> oclinfo;
-    //ocl dst mat for testing
-    cv::ocl::oclMat gdst_whole;
-
-    //ocl mat with roi
-    cv::ocl::oclMat gmat1;
-    cv::ocl::oclMat gdst;
-
-    virtual void SetUp()
+    if (RUN_OCL_IMPL)
     {
-        type = GET_PARAM(0);
-        ksize = GET_PARAM(1);
-        bordertype = GET_PARAM(2);
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type);
 
-        cv::RNG &rng = TS::ptr()->get_rng();
-        cv::Size size = cv::Size(MWIDTH, MHEIGHT);
+        OCL_TEST_CYCLE() cv::ocl::Scharr(oclSrc, oclDst, -1, dx, dy);
 
-        sigma1 = rng.uniform(0.1, 1.0);
-        sigma2 = rng.uniform(0.1, 1.0);
+        oclDst.download(dst);
 
-        mat1 = randomMat(rng, size, type, 5, 16, false);
-        dst  = randomMat(rng, size, type, 5, 16, false);
-        //int devnums = getDevice(oclinfo);
-        //CV_Assert(devnums > 0);
-        ////if you want to use undefault device, set it here
-        ////setDevice(oclinfo[0]);
-        //cv::ocl::setBinpath(CLBINPATH);
+        SANITY_CHECK(dst, 1e-2);
     }
-
-    void Has_roi(int b)
+    else if (RUN_PLAIN_IMPL)
     {
-        if(b)
-        {
-            roicols =  mat1.cols - 1;
-            roirows = mat1.rows - 1;
-            src1x   = 1;
-            src1y   = 1;
-            dstx    = 1;
-            dsty    = 1;
-        }
-        else
-        {
-            roicols = mat1.cols;
-            roirows = mat1.rows;
-            src1x = 0;
-            src1y = 0;
-            dstx = 0;
-            dsty = 0;
-        };
+        TEST_CYCLE() cv::Scharr(src, dst, -1, dx, dy);
 
-        mat1_roi = mat1(Rect(src1x, src1y, roicols, roirows));
-        dst_roi  = dst(Rect(dstx, dsty, roicols, roirows));
-
+        SANITY_CHECK(dst);
     }
-
-};
-
-TEST_P(GaussianBlur, Mat)
-{
-#ifndef PRINT_KERNEL_RUN_TIME
-    double totalcputick = 0;
-    double totalgputick = 0;
-    double totalgputick_kernel = 0;
-    double t0 = 0;
-    double t1 = 0;
-    double t2 = 0;
-    for(int k = LOOPROISTART; k < LOOPROIEND; k++)
-    {
-        totalcputick = 0;
-        totalgputick = 0;
-        totalgputick_kernel = 0;
-        for(int j = 0; j < LOOP_TIMES + 1; j ++)
-        {
-            Has_roi(k);
-
-            t0 = (double)cvGetTickCount();//cpu start
-            cv::GaussianBlur(mat1_roi, dst_roi, ksize, sigma1, sigma2, bordertype);
-            t0 = (double)cvGetTickCount() - t0;//cpu end
-
-            t1 = (double)cvGetTickCount();//gpu start1
-            gdst_whole = dst;
-            gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-
-            gmat1 = mat1_roi;
-            t2 = (double)cvGetTickCount(); //kernel
-            cv::ocl::GaussianBlur(gmat1, gdst, ksize, sigma1, sigma2, bordertype);
-            t2 = (double)cvGetTickCount() - t2;//kernel
-            cv::Mat cpu_dst;
-            gdst_whole.download (cpu_dst);//download
-            t1 = (double)cvGetTickCount() - t1;//gpu end1
-
-            if(j == 0)
-                continue;
-
-            totalgputick = t1 + totalgputick;
-            totalcputick = t0 + totalcputick;
-            totalgputick_kernel = t2 + totalgputick_kernel;
-
-
-        }
-        if(k == 0)
-        {
-            cout << "no roi\n";
-        }
-        else
-        {
-            cout << "with roi\n";
-        };
-        cout << "average cpu runtime is  " << totalcputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime is  " << totalgputick / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-        cout << "average gpu runtime without data transfer is  " << totalgputick_kernel / ((double)cvGetTickFrequency()* LOOP_TIMES * 1000.) << "ms" << endl;
-    }
-#else
-    for(int j = LOOPROISTART; j < LOOPROIEND; j ++)
-    {
-        Has_roi(j);
-        gdst_whole = dst;
-        gdst = gdst_whole(Rect(dstx, dsty, roicols, roirows));
-        gmat1 = mat1_roi;
-        if(j == 0)
-        {
-            cout << "no roi:";
-        }
-        else
-        {
-            cout << "\nwith roi:";
-        };
-        cv::ocl::GaussianBlur(gmat1, gdst, ksize, sigma1, sigma2, bordertype);
-    };
-#endif
-
+    else
+        OCL_PERF_ELSE
 }
 
-//************test**********
+///////////// GaussianBlur ////////////////////////
 
-INSTANTIATE_TEST_CASE_P(Filter, Blur, Combine(Values(CV_8UC1, CV_8UC4, CV_32FC1, CV_32FC4),
-                        Values(cv::Size(3, 3)/*, cv::Size(5, 5), cv::Size(7, 7)*/),
-                        Values((MatType)cv::BORDER_CONSTANT, (MatType)cv::BORDER_REPLICATE, (MatType)cv::BORDER_REFLECT, (MatType)cv::BORDER_REFLECT_101)));
+typedef FilterFixture GaussianBlurFixture;
 
+OCL_PERF_TEST_P(GaussianBlurFixture, GaussianBlur,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, OCL_PERF_ENUM(3, 5, 7)))
+{
+    const FilterParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), ksize = get<2>(params);
 
-INSTANTIATE_TEST_CASE_P(Filters, Laplacian, Combine(
-                            Values(CV_8UC1, CV_8UC4, CV_32FC1, CV_32FC4),
-                            Values(1/*, 3*/)));
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
 
-//INSTANTIATE_TEST_CASE_P(Filter, ErodeDilate, Combine(Values(CV_8UC1, CV_8UC4, CV_32FC1, CV_32FC4), Values(1, 2, 3)));
+    Mat src(srcSize, type), dst(srcSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
 
-INSTANTIATE_TEST_CASE_P(Filter, Erode, Combine(Values(CV_8UC1, CV_8UC1), Values(false)));
+    const double eps = src.depth() == CV_8U ? 1 + DBL_EPSILON : 5e-4;
 
-//INSTANTIATE_TEST_CASE_P(Filter, ErodeDilate, Combine(Values(CV_8UC1, CV_8UC4, CV_32FC1, CV_32FC4), Values(1, 2, 3)));
+    if (RUN_OCL_IMPL)
+    {
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type);
 
-INSTANTIATE_TEST_CASE_P(Filter, Dilate, Combine(Values(CV_8UC1, CV_8UC1), Values(false)));
+        OCL_TEST_CYCLE() cv::ocl::GaussianBlur(oclSrc, oclDst, Size(ksize, ksize), 0);
 
+        oclDst.download(dst);
 
-INSTANTIATE_TEST_CASE_P(Filter, Sobel, Combine(Values(CV_8UC1, CV_32FC1),
-                        Values(1, 2), Values(0, 1), Values(3, 5), Values((MatType)cv::BORDER_CONSTANT,
-                                (MatType)cv::BORDER_REPLICATE)));
+        SANITY_CHECK(dst, eps);
+    }
+    else if (RUN_PLAIN_IMPL)
+    {
+        TEST_CYCLE() cv::GaussianBlur(src, dst, Size(ksize, ksize), 0);
 
+        SANITY_CHECK(dst, eps);
+    }
+    else
+        OCL_PERF_ELSE
+}
 
-INSTANTIATE_TEST_CASE_P(Filter, Scharr, Combine(
-                            Values(CV_8UC1,  CV_32FC1), Values(0, 1), Values(0, 1),
-                            Values((MatType)cv::BORDER_CONSTANT, (MatType)cv::BORDER_REPLICATE)));
+///////////// filter2D////////////////////////
 
-INSTANTIATE_TEST_CASE_P(Filter, GaussianBlur, Combine(
-                            Values(CV_8UC1,  CV_32FC1),
-                            Values(cv::Size(3, 3), cv::Size(5, 5)),
-                            Values((MatType)cv::BORDER_CONSTANT, (MatType)cv::BORDER_REPLICATE)));
+typedef FilterFixture Filter2DFixture;
 
+OCL_PERF_TEST_P(Filter2DFixture, Filter2D,
+            ::testing::Combine(OCL_TEST_SIZES, OCL_TEST_TYPES, OCL_PERF_ENUM(3, 5)))
+{
+    const FilterParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params), ksize = get<2>(params);
 
-#endif // HAVE_OPENCL
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
+
+    Mat src(srcSize, type), dst(srcSize, type), kernel(ksize, ksize, CV_32SC1);
+    declare.in(src, WARMUP_RNG).in(kernel).out(dst);
+    randu(kernel, -3.0, 3.0);
+
+    if (RUN_OCL_IMPL)
+    {
+        ocl::oclMat oclSrc(src), oclDst(srcSize, type), oclKernel(kernel);
+
+        OCL_TEST_CYCLE() cv::ocl::filter2D(oclSrc, oclDst, -1, oclKernel);
+
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst, 3e-2);
+    }
+    else if (RUN_PLAIN_IMPL)
+    {
+        TEST_CYCLE() cv::filter2D(src, dst, -1, kernel);
+
+        SANITY_CHECK(dst, 1e-2);
+    }
+    else
+        OCL_PERF_ELSE
+}
+
+///////////// Bilateral////////////////////////
+
+typedef TestBaseWithParam<Size> BilateralFixture;
+
+OCL_PERF_TEST_P(BilateralFixture, Bilateral, OCL_TEST_SIZES)
+{
+    const Size srcSize = GetParam();
+    const int d = 7;
+    const double sigmacolor = 50.0, sigmaspace = 50.0;
+
+    checkDeviceMaxMemoryAllocSize(srcSize, CV_8UC1);
+
+    Mat src(srcSize, CV_8UC1), dst(srcSize, CV_8UC1);
+    declare.in(src, WARMUP_RNG).out(dst);
+
+    if (RUN_OCL_IMPL)
+    {
+        ocl::oclMat oclSrc(src), oclDst(srcSize, CV_8UC1);
+
+        OCL_TEST_CYCLE() cv::ocl::bilateralFilter(oclSrc, oclDst, d, sigmacolor, sigmaspace);
+
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst);
+    }
+    else if (RUN_PLAIN_IMPL)
+    {
+        TEST_CYCLE() cv::bilateralFilter(src, dst, d, sigmacolor, sigmaspace);
+
+        SANITY_CHECK(dst);
+    }
+    else
+        OCL_PERF_ELSE
+}
+
+///////////// MedianBlur////////////////////////
+
+typedef tuple<Size, int> MedianBlurParams;
+typedef TestBaseWithParam<MedianBlurParams> MedianBlurFixture;
+
+OCL_PERF_TEST_P(MedianBlurFixture, Bilateral, ::testing::Combine(OCL_TEST_SIZES, OCL_PERF_ENUM(3, 5)))
+{
+    MedianBlurParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int ksize = get<1>(params);
+
+    checkDeviceMaxMemoryAllocSize(srcSize, CV_8UC1);
+
+    Mat src(srcSize, CV_8UC1), dst(srcSize, CV_8UC1);
+    declare.in(src, WARMUP_RNG).out(dst);
+
+    if (RUN_OCL_IMPL)
+    {
+        ocl::oclMat oclSrc(src), oclDst(srcSize, CV_8UC1);
+
+        OCL_TEST_CYCLE() cv::ocl::medianFilter(oclSrc, oclDst, ksize);
+
+        oclDst.download(dst);
+
+        SANITY_CHECK(dst);
+    }
+    else if (RUN_PLAIN_IMPL)
+    {
+        TEST_CYCLE() cv::medianBlur(src, dst, ksize);
+
+        SANITY_CHECK(dst);
+    }
+    else
+        OCL_PERF_ELSE
+}

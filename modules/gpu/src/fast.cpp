@@ -22,13 +22,13 @@
 //
 //   * Redistribution's in binary form must reproduce the above copyright notice,
 //     this list of conditions and the following disclaimer in the documentation
-//     and/or other GpuMaterials provided with the distribution.
+//     and/or other materials provided with the distribution.
 //
 //   * The name of the copyright holders may not be used to endorse or promote products
 //     derived from this software without specific prior written permission.
 //
 // This software is provided by the copyright holders and contributors "as is" and
-// any express or bpied warranties, including, but not limited to, the bpied
+// any express or implied warranties, including, but not limited to, the implied
 // warranties of merchantability and fitness for a particular purpose are disclaimed.
 // In no event shall the Intel Corporation or contributors be liable for any direct,
 // indirect, incidental, special, exemplary, or consequential damages
@@ -59,8 +59,8 @@ int cv::gpu::FAST_GPU::getKeyPoints(GpuMat&) { throw_nogpu(); return 0; }
 
 #else /* !defined (HAVE_CUDA) */
 
-cv::gpu::FAST_GPU::FAST_GPU(int _threshold, bool _nonmaxSupression, double _keypointsRatio) :
-    nonmaxSupression(_nonmaxSupression), threshold(_threshold), keypointsRatio(_keypointsRatio), count_(0)
+cv::gpu::FAST_GPU::FAST_GPU(int _threshold, bool _nonmaxSuppression, double _keypointsRatio) :
+    nonmaxSuppression(_nonmaxSuppression), threshold(_threshold), keypointsRatio(_keypointsRatio), count_(0)
 {
 }
 
@@ -114,7 +114,7 @@ namespace cv { namespace gpu { namespace device
     namespace fast
     {
         int calcKeypoints_gpu(PtrStepSzb img, PtrStepSzb mask, short2* kpLoc, int maxKeypoints, PtrStepSzi score, int threshold);
-        int nonmaxSupression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response);
+        int nonmaxSuppression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response);
     }
 }}}
 
@@ -129,13 +129,13 @@ int cv::gpu::FAST_GPU::calcKeyPointsLocation(const GpuMat& img, const GpuMat& ma
 
     ensureSizeIsEnough(1, maxKeypoints, CV_16SC2, kpLoc_);
 
-    if (nonmaxSupression)
+    if (nonmaxSuppression)
     {
         ensureSizeIsEnough(img.size(), CV_32SC1, score_);
         score_.setTo(Scalar::all(0));
     }
 
-    count_ = calcKeypoints_gpu(img, mask, kpLoc_.ptr<short2>(), maxKeypoints, nonmaxSupression ? score_ : PtrStepSzi(), threshold);
+    count_ = calcKeypoints_gpu(img, mask, kpLoc_.ptr<short2>(), maxKeypoints, nonmaxSuppression ? score_ : PtrStepSzi(), threshold);
     count_ = std::min(count_, maxKeypoints);
 
     return count_;
@@ -150,8 +150,8 @@ int cv::gpu::FAST_GPU::getKeyPoints(GpuMat& keypoints)
 
     ensureSizeIsEnough(ROWS_COUNT, count_, CV_32FC1, keypoints);
 
-    if (nonmaxSupression)
-        return nonmaxSupression_gpu(kpLoc_.ptr<short2>(), count_, score_, keypoints.ptr<short2>(LOCATION_ROW), keypoints.ptr<float>(RESPONSE_ROW));
+    if (nonmaxSuppression)
+        return nonmaxSuppression_gpu(kpLoc_.ptr<short2>(), count_, score_, keypoints.ptr<short2>(LOCATION_ROW), keypoints.ptr<float>(RESPONSE_ROW));
 
     GpuMat locRow(1, count_, kpLoc_.type(), keypoints.ptr(0));
     kpLoc_.colRange(0, count_).copyTo(locRow);

@@ -28,7 +28,7 @@
 //     derived from this software without specific prior written permission.
 //
 // This software is provided by the copyright holders and contributors "as is" and
-// any express or bpied warranties, including, but not limited to, the bpied
+// any express or implied warranties, including, but not limited to, the implied
 // warranties of merchantability and fitness for a particular purpose are disclaimed.
 // In no event shall the Intel Corporation or contributors be liable for any direct,
 // indirect, incidental, special, exemplary, or consequential damages
@@ -211,7 +211,7 @@ namespace tvl1flow
                               const PtrStepf grad, const PtrStepf rho_c,
                               const PtrStepf p11, const PtrStepf p12, const PtrStepf p21, const PtrStepf p22,
                               PtrStepf u1, PtrStepf u2, PtrStepf error,
-                              const float l_t, const float theta)
+                              const float l_t, const float theta, const bool calcError)
     {
         const int x = blockIdx.x * blockDim.x + threadIdx.x;
         const int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -265,21 +265,24 @@ namespace tvl1flow
         u1(y, x) = u1NewVal;
         u2(y, x) = u2NewVal;
 
-        const float n1 = (u1OldVal - u1NewVal) * (u1OldVal - u1NewVal);
-        const float n2 = (u2OldVal - u2NewVal) * (u2OldVal - u2NewVal);
-        error(y, x) = n1 + n2;
+        if (calcError)
+        {
+            const float n1 = (u1OldVal - u1NewVal) * (u1OldVal - u1NewVal);
+            const float n2 = (u2OldVal - u2NewVal) * (u2OldVal - u2NewVal);
+            error(y, x) = n1 + n2;
+        }
     }
 
     void estimateU(PtrStepSzf I1wx, PtrStepSzf I1wy,
                    PtrStepSzf grad, PtrStepSzf rho_c,
                    PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22,
                    PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf error,
-                   float l_t, float theta)
+                   float l_t, float theta, bool calcError)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(I1wx.cols, block.x), divUp(I1wx.rows, block.y));
 
-        estimateUKernel<<<grid, block>>>(I1wx, I1wy, grad, rho_c, p11, p12, p21, p22, u1, u2, error, l_t, theta);
+        estimateUKernel<<<grid, block>>>(I1wx, I1wy, grad, rho_c, p11, p12, p21, p22, u1, u2, error, l_t, theta, calcError);
         cudaSafeCall( cudaGetLastError() );
 
         cudaSafeCall( cudaDeviceSynchronize() );

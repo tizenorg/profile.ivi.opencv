@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 
 '''
 Sample-launcher application.
@@ -155,4 +155,3 @@ class App:
 
 if __name__ == '__main__':
     App().run()
-
