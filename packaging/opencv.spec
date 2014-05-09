@@ -21,7 +21,7 @@
 Name:           opencv
 %define libname lib%{name}
 %define soname  2_4
-Version:        2.4.4
+Version:        2.4.9
 Release:        0
 Summary:        Collection of algorithms for computer vision
 License:        BSD-3-Clause
@@ -112,6 +112,7 @@ rm -rf %{buildroot}
 %files -n %{libname}%{soname}
 %defattr(-, root, root, 0755)
 %{_libdir}/lib*.so.*
+%{_libdir}/lib*.a
 
 %files -n %{name}
 %defattr(0644, root, root, 0755)
