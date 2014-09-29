@@ -110,27 +110,23 @@ rm -rf %{buildroot}
 %postun -n %{libname}%{soname} -p /sbin/ldconfig
 
 %files -n %{libname}%{soname}
+%manifest packaging/opencv.manifest
 %defattr(-, root, root, 0755)
 %{_libdir}/lib*.so.*
 %{_libdir}/lib*.a
 
 %files -n %{name}
-%defattr(0644, root, root, 0755)
 %attr(0755, root, root) %{_bindir}/%{name}_*
+%manifest packaging/opencv.manifest
 %{_datadir}/OpenCV
 %exclude %{_datadir}/OpenCV/OpenCVConfig*.cmake
 
 %files devel
-%defattr(0644, root, root, 0755)
+%manifest packaging/opencv.manifest
 %{_includedir}/opencv
 %{_includedir}/opencv2
 %{_libdir}/lib*.so
 %{_libdir}/pkgconfig/%{name}.pc
 %{_datadir}/OpenCV/OpenCVConfig*.cmake
-
-#%files -n python-%{name}
-#%defattr(0644, root, root, 0755)
-#%{python_sitearch}/cv.py
-#%{python_sitearch}/cv2.so
 
 %changelog
