@@ -36,6 +36,8 @@ BuildRequires: gstreamer-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  libtiff-devel
 BuildRequires:  zlib-devel
+BuildRequires: beignet-devel
+Requires: beignet
 
 %description
 OpenCV means Intel® Open Source Computer Vision Library. It is a collection of C
