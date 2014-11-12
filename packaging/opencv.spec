@@ -36,8 +36,22 @@ BuildRequires: gstreamer-devel
 BuildRequires:  libjpeg-devel
 BuildRequires:  libtiff-devel
 BuildRequires:  zlib-devel
+BuildRequires:  qt5-qtwidgets-devel
+BuildRequires:  qt5-plugin-generic-evdev
+BuildRequires:  qt5-plugin-imageformat-gif
+BuildRequires:  qt5-plugin-platform-linuxfb
+BuildRequires:  qt5-plugin-platform-offscreen
+BuildRequires:  qt5-plugin-platform-minimalegl
+BuildRequires:  qt5-plugin-platform-minimal
+BuildRequires:  qt5-plugin-platform-eglfs
+BuildRequires:  qt5-plugin-imageformat-jpeg
+BuildRequires:  qt5-plugin-platforminputcontext-ibus
+BuildRequires:  qt5-plugin-imageformat-ico
+BuildRequires:  qt5-qttest-devel
+BuildRequires:  qt5-qtconcurrent-devel
 BuildRequires: beignet-devel
 Requires: beignet
+Requires: qt5-qtwidgets
 
 %description
 OpenCV means Intel® Open Source Computer Vision Library. It is a collection of C
@@ -88,10 +102,17 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DINSTALL_PYTHON_EXAMPLES=OFF \
       -DLIB_SUFFIX=$(echo %{_lib} | cut -b4-) \
       -DENABLE_OMIT_FRAME_POINTER=OFF \
-      -DWITH_QT=OFF \
+      -DWITH_QT=ON \
       -DWITH_UNICAP=ON \
       -DWITH_XINE=ON \
+      -DWITH_OPENGL=ON \
+      -DENABLE_SSE2=ON \
+      -DENABLE_SSE3=ON \
+      -DENABLE_SSE41=ON \
+      -DENABLE_SSE42=ON \
+      -DENABLE_SSSE3=ON \
        ..
+
 make %{?_smp_mflags} VERBOSE=1
 
 %install
