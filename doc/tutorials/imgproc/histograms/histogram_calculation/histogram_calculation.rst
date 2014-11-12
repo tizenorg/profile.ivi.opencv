@@ -88,8 +88,8 @@ Code
 
 .. code-block:: cpp
 
-    #include "opencv2/highgui/highgui.hpp"
-    #include "opencv2/imgproc/imgproc.hpp"
+    #include "opencv2/highgui.hpp"
+    #include "opencv2/imgproc.hpp"
     #include <iostream>
     #include <stdio.h>
 
@@ -155,7 +155,7 @@ Code
       }
 
       /// Display
-      namedWindow("calcHist Demo", CV_WINDOW_AUTOSIZE );
+      namedWindow("calcHist Demo", WINDOW_AUTOSIZE );
       imshow("calcHist Demo", histImage );
 
       waitKey(0);
@@ -309,7 +309,7 @@ Explanation
 
    .. code-block:: cpp
 
-      namedWindow("calcHist Demo", CV_WINDOW_AUTOSIZE );
+      namedWindow("calcHist Demo", WINDOW_AUTOSIZE );
       imshow("calcHist Demo", histImage );
 
       waitKey(0);

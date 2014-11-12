@@ -11,6 +11,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.test.OpenCVTestCase;
+import org.opencv.imgproc.Imgproc;
 
 public class Calib3dTest extends OpenCVTestCase {
 
@@ -162,7 +163,7 @@ public class Calib3dTest extends OpenCVTestCase {
     public void testFilterSpecklesMatDoubleIntDouble() {
         gray_16s_1024.copyTo(dst);
         Point center = new Point(gray_16s_1024.rows() / 2., gray_16s_1024.cols() / 2.);
-        Core.circle(dst, center, 1, Scalar.all(4096));
+        Imgproc.circle(dst, center, 1, Scalar.all(4096));
 
         assertMatNotEqual(gray_16s_1024, dst);
         Calib3d.filterSpeckles(dst, 1024.0, 100, 0.);
@@ -188,34 +189,34 @@ public class Calib3dTest extends OpenCVTestCase {
         assertTrue(!corners.empty());
     }
 
-    public void testFindCirclesGridDefaultMatSizeMat() {
+    public void testFindCirclesGridMatSizeMat() {
         int size = 300;
         Mat img = new Mat(size, size, CvType.CV_8U);
         img.setTo(new Scalar(255));
         Mat centers = new Mat();
 
-        assertFalse(Calib3d.findCirclesGridDefault(img, new Size(5, 5), centers));
+        assertFalse(Calib3d.findCirclesGrid(img, new Size(5, 5), centers));
 
         for (int i = 0; i < 5; i++)
             for (int j = 0; j < 5; j++) {
                 Point pt = new Point(size * (2 * i + 1) / 10, size * (2 * j + 1) / 10);
-                Core.circle(img, pt, 10, new Scalar(0), -1);
+                Imgproc.circle(img, pt, 10, new Scalar(0), -1);
             }
 
-        assertTrue(Calib3d.findCirclesGridDefault(img, new Size(5, 5), centers));
+        assertTrue(Calib3d.findCirclesGrid(img, new Size(5, 5), centers));
 
         assertEquals(25, centers.rows());
         assertEquals(1, centers.cols());
         assertEquals(CvType.CV_32FC2, centers.type());
     }
 
-    public void testFindCirclesGridDefaultMatSizeMatInt() {
+    public void testFindCirclesGridMatSizeMatInt() {
         int size = 300;
         Mat img = new Mat(size, size, CvType.CV_8U);
         img.setTo(new Scalar(255));
         Mat centers = new Mat();
 
-        assertFalse(Calib3d.findCirclesGridDefault(img, new Size(3, 5), centers, Calib3d.CALIB_CB_CLUSTERING
+        assertFalse(Calib3d.findCirclesGrid(img, new Size(3, 5), centers, Calib3d.CALIB_CB_CLUSTERING
                 | Calib3d.CALIB_CB_ASYMMETRIC_GRID));
 
         int step = size * 2 / 15;
@@ -224,10 +225,10 @@ public class Calib3dTest extends OpenCVTestCase {
         for (int i = 0; i < 3; i++)
             for (int j = 0; j < 5; j++) {
                 Point pt = new Point(offsetx + (2 * i + j % 2) * step, offsety + step * j);
-                Core.circle(img, pt, 10, new Scalar(0), -1);
+                Imgproc.circle(img, pt, 10, new Scalar(0), -1);
             }
 
-        assertTrue(Calib3d.findCirclesGridDefault(img, new Size(3, 5), centers, Calib3d.CALIB_CB_CLUSTERING
+        assertTrue(Calib3d.findCirclesGrid(img, new Size(3, 5), centers, Calib3d.CALIB_CB_CLUSTERING
                 | Calib3d.CALIB_CB_ASYMMETRIC_GRID));
 
         assertEquals(15, centers.rows());

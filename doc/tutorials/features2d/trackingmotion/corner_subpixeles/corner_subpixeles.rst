@@ -23,8 +23,8 @@ This tutorial code's is shown lines below. You can also download it from `here <
 
 .. code-block:: cpp
 
-   #include "opencv2/highgui/highgui.hpp"
-   #include "opencv2/imgproc/imgproc.hpp"
+   #include "opencv2/highgui.hpp"
+   #include "opencv2/imgproc.hpp"
    #include <iostream>
    #include <stdio.h>
    #include <stdlib.h>
@@ -49,10 +49,10 @@ This tutorial code's is shown lines below. You can also download it from `here <
    {
      /// Load source image and convert it to gray
      src = imread( argv[1], 1 );
-     cvtColor( src, src_gray, CV_BGR2GRAY );
+     cvtColor( src, src_gray, COLOR_BGR2GRAY );
 
      /// Create Window
-     namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+     namedWindow( source_window, WINDOW_AUTOSIZE );
 
      /// Create Trackbar to set the number of corners
      createTrackbar( "Max  corners:", source_window, &maxCorners, maxTrackbar, goodFeaturesToTrack_Demo);
@@ -87,14 +87,14 @@ This tutorial code's is shown lines below. You can also download it from `here <
 
      /// Apply corner detection
      goodFeaturesToTrack( src_gray,
-                          corners,
-                          maxCorners,
-                          qualityLevel,
-                          minDistance,
-                          Mat(),
-                          blockSize,
-                          useHarrisDetector,
-                          k );
+                  corners,
+                  maxCorners,
+                  qualityLevel,
+                  minDistance,
+                  Mat(),
+                  blockSize,
+                  useHarrisDetector,
+                  k );
 
 
      /// Draw corners detected
@@ -105,13 +105,13 @@ This tutorial code's is shown lines below. You can also download it from `here <
                                                     rng.uniform(0,255)), -1, 8, 0 ); }
 
      /// Show what you got
-     namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+     namedWindow( source_window, WINDOW_AUTOSIZE );
      imshow( source_window, copy );
 
      /// Set the neeed parameters to find the refined corners
      Size winSize = Size( 5, 5 );
      Size zeroZone = Size( -1, -1 );
-     TermCriteria criteria = TermCriteria( CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 40, 0.001 );
+     TermCriteria criteria = TermCriteria( TermCriteria::EPS + TermCriteria::MAX_ITER, 40, 0.001 );
 
      /// Calculate the refined corner locations
      cornerSubPix( src_gray, corners, winSize, zeroZone, criteria );

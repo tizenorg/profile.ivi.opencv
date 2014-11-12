@@ -63,8 +63,8 @@ Code
 
 .. code-block:: cpp
 
-   #include "opencv2/highgui/highgui.hpp"
-   #include "opencv2/imgproc/imgproc.hpp"
+   #include "opencv2/highgui.hpp"
+   #include "opencv2/imgproc.hpp"
    #include <iostream>
    #include <stdio.h>
 
@@ -93,7 +93,7 @@ Code
     map_y.create( src.size(), CV_32FC1 );
 
     /// Create window
-    namedWindow( remap_window, CV_WINDOW_AUTOSIZE );
+    namedWindow( remap_window, WINDOW_AUTOSIZE );
 
     /// Loop
     while( true )
@@ -106,7 +106,7 @@ Code
 
       /// Update map_x & map_y. Then apply remap
       update_map();
-      remap( src, dst, map_x, map_y, CV_INTER_LINEAR, BORDER_CONSTANT, Scalar(0,0, 0) );
+      remap( src, dst, map_x, map_y, INTER_LINEAR, BORDER_CONSTANT, Scalar(0,0, 0) );
 
       /// Display results
       imshow( remap_window, dst );
@@ -124,34 +124,34 @@ Code
 
      for( int j = 0; j < src.rows; j++ )
      { for( int i = 0; i < src.cols; i++ )
-         {
+     {
            switch( ind )
-           {
-             case 0:
-               if( i > src.cols*0.25 && i < src.cols*0.75 && j > src.rows*0.25 && j < src.rows*0.75 )
+       {
+         case 0:
+           if( i > src.cols*0.25 && i < src.cols*0.75 && j > src.rows*0.25 && j < src.rows*0.75 )
                  {
-                   map_x.at<float>(j,i) = 2*( i - src.cols*0.25 ) + 0.5 ;
-                   map_y.at<float>(j,i) = 2*( j - src.rows*0.25 ) + 0.5 ;
-                  }
-               else
-                 { map_x.at<float>(j,i) = 0 ;
-                   map_y.at<float>(j,i) = 0 ;
+               map_x.at<float>(j,i) = 2*( i - src.cols*0.25 ) + 0.5 ;
+               map_y.at<float>(j,i) = 2*( j - src.rows*0.25 ) + 0.5 ;
+              }
+           else
+         { map_x.at<float>(j,i) = 0 ;
+               map_y.at<float>(j,i) = 0 ;
                  }
                    break;
-             case 1:
-                   map_x.at<float>(j,i) = i ;
-                   map_y.at<float>(j,i) = src.rows - j ;
-                   break;
+         case 1:
+               map_x.at<float>(j,i) = i ;
+               map_y.at<float>(j,i) = src.rows - j ;
+           break;
              case 2:
-                   map_x.at<float>(j,i) = src.cols - i ;
-                   map_y.at<float>(j,i) = j ;
-                   break;
+               map_x.at<float>(j,i) = src.cols - i ;
+               map_y.at<float>(j,i) = j ;
+           break;
              case 3:
-                   map_x.at<float>(j,i) = src.cols - i ;
-                   map_y.at<float>(j,i) = src.rows - j ;
-                   break;
+               map_x.at<float>(j,i) = src.cols - i ;
+               map_y.at<float>(j,i) = src.rows - j ;
+           break;
            } // end of switch
-         }
+     }
       }
     ind++;
   }
@@ -186,7 +186,7 @@ Explanation
 
    .. code-block:: cpp
 
-      namedWindow( remap_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( remap_window, WINDOW_AUTOSIZE );
 
 #. Establish a loop. Each 1000 ms we update our mapping matrices (*mat_x* and *mat_y*) and apply them to our source image:
 
@@ -202,7 +202,7 @@ Explanation
 
         /// Update map_x & map_y. Then apply remap
         update_map();
-        remap( src, dst, map_x, map_y, CV_INTER_LINEAR, BORDER_CONSTANT, Scalar(0,0, 0) );
+        remap( src, dst, map_x, map_y, INTER_LINEAR, BORDER_CONSTANT, Scalar(0,0, 0) );
 
         /// Display results
         imshow( remap_window, dst );
@@ -214,7 +214,7 @@ Explanation
    * **dst**: Destination image of same size as *src*
    * **map_x**: The mapping function in the x direction. It is equivalent to the first component of :math:`h(i,j)`
    * **map_y**: Same as above, but in y direction. Note that *map_y* and *map_x* are both of the same size as *src*
-   * **CV_INTER_LINEAR**: The type of interpolation to use for non-integer pixels. This is by default.
+   * **INTER_LINEAR**: The type of interpolation to use for non-integer pixels. This is by default.
    * **BORDER_CONSTANT**: Default
 
    How do we update our mapping matrices *mat_x* and *mat_y*? Go on reading:
@@ -241,34 +241,34 @@ Explanation
 
      for( int j = 0; j < src.rows; j++ )
      { for( int i = 0; i < src.cols; i++ )
-         {
+     {
            switch( ind )
-           {
-             case 0:
-               if( i > src.cols*0.25 && i < src.cols*0.75 && j > src.rows*0.25 && j < src.rows*0.75 )
+       {
+         case 0:
+           if( i > src.cols*0.25 && i < src.cols*0.75 && j > src.rows*0.25 && j < src.rows*0.75 )
                  {
-                   map_x.at<float>(j,i) = 2*( i - src.cols*0.25 ) + 0.5 ;
-                   map_y.at<float>(j,i) = 2*( j - src.rows*0.25 ) + 0.5 ;
-                  }
-               else
-                 { map_x.at<float>(j,i) = 0 ;
-                   map_y.at<float>(j,i) = 0 ;
+               map_x.at<float>(j,i) = 2*( i - src.cols*0.25 ) + 0.5 ;
+               map_y.at<float>(j,i) = 2*( j - src.rows*0.25 ) + 0.5 ;
+              }
+           else
+         { map_x.at<float>(j,i) = 0 ;
+               map_y.at<float>(j,i) = 0 ;
                  }
                    break;
-             case 1:
-                   map_x.at<float>(j,i) = i ;
-                   map_y.at<float>(j,i) = src.rows - j ;
-                   break;
+         case 1:
+               map_x.at<float>(j,i) = i ;
+               map_y.at<float>(j,i) = src.rows - j ;
+           break;
              case 2:
-                   map_x.at<float>(j,i) = src.cols - i ;
-                   map_y.at<float>(j,i) = j ;
-                   break;
+               map_x.at<float>(j,i) = src.cols - i ;
+               map_y.at<float>(j,i) = j ;
+           break;
              case 3:
-                   map_x.at<float>(j,i) = src.cols - i ;
-                   map_y.at<float>(j,i) = src.rows - j ;
-                   break;
+               map_x.at<float>(j,i) = src.cols - i ;
+               map_y.at<float>(j,i) = src.rows - j ;
+           break;
            } // end of switch
-         }
+     }
        }
       ind++;
      }

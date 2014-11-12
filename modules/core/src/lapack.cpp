@@ -41,6 +41,7 @@
 //M*/
 
 #include "precomp.hpp"
+#include <limits>
 
 #if defined _M_IX86 && defined _MSC_VER && _MSC_VER < 1700
 #pragma float_control(precise, on)
@@ -858,8 +859,9 @@ double cv::determinant( InputArray _mat )
     double result = 0;
     int type = mat.type(), rows = mat.rows;
     size_t step = mat.step;
-    const uchar* m = mat.data;
+    const uchar* m = mat.ptr();
 
+    CV_Assert( !mat.empty() );
     CV_Assert( mat.rows == mat.cols && (type == CV_32F || type == CV_64F));
 
     #define Mf(y, x) ((float*)(m + y*step))[x]
@@ -880,11 +882,11 @@ double cv::determinant( InputArray _mat )
             Mat a(rows, rows, CV_32F, (uchar*)buffer);
             mat.copyTo(a);
 
-            result = LU((float*)a.data, a.step, rows, 0, 0, 0);
+            result = LU(a.ptr<float>(), a.step, rows, 0, 0, 0);
             if( result )
             {
                 for( int i = 0; i < rows; i++ )
-                    result *= ((const float*)(a.data + a.step*i))[i];
+                    result *= a.at<float>(i,i);
                 result = 1./result;
             }
         }
@@ -904,11 +906,11 @@ double cv::determinant( InputArray _mat )
             Mat a(rows, rows, CV_64F, (uchar*)buffer);
             mat.copyTo(a);
 
-            result = LU((double*)a.data, a.step, rows, 0, 0, 0);
+            result = LU(a.ptr<double>(), a.step, rows, 0, 0, 0);
             if( result )
             {
                 for( int i = 0; i < rows; i++ )
-                    result *= ((const double*)(a.data + a.step*i))[i];
+                    result *= a.at<double>(i,i);
                 result = 1./result;
             }
         }
@@ -947,16 +949,16 @@ double cv::invert( InputArray _src, OutputArray _dst, int method )
         AutoBuffer<uchar> _buf((m*nm + nm + nm*n)*esz + sizeof(double));
         uchar* buf = alignPtr((uchar*)_buf, (int)esz);
         Mat u(m, nm, type, buf);
-        Mat w(nm, 1, type, u.data + m*nm*esz);
-        Mat vt(nm, n, type, w.data + nm*esz);
+        Mat w(nm, 1, type, u.ptr() + m*nm*esz);
+        Mat vt(nm, n, type, w.ptr() + nm*esz);
 
         SVD::compute(src, w, u, vt);
         SVD::backSubst(w, u, vt, Mat(), _dst);
         return type == CV_32F ?
-            (((float*)w.data)[0] >= FLT_EPSILON ?
-             ((float*)w.data)[n-1]/((float*)w.data)[0] : 0) :
-            (((double*)w.data)[0] >= DBL_EPSILON ?
-             ((double*)w.data)[n-1]/((double*)w.data)[0] : 0);
+            (w.ptr<float>()[0] >= FLT_EPSILON ?
+             w.ptr<float>()[n-1]/w.ptr<float>()[0] : 0) :
+            (w.ptr<double>()[0] >= DBL_EPSILON ?
+             w.ptr<double>()[n-1]/w.ptr<double>()[0] : 0);
     }
 
     CV_Assert( m == n );
@@ -966,17 +968,17 @@ double cv::invert( InputArray _src, OutputArray _dst, int method )
         AutoBuffer<uchar> _buf((n*n*2 + n)*esz + sizeof(double));
         uchar* buf = alignPtr((uchar*)_buf, (int)esz);
         Mat u(n, n, type, buf);
-        Mat w(n, 1, type, u.data + n*n*esz);
-        Mat vt(n, n, type, w.data + n*esz);
+        Mat w(n, 1, type, u.ptr() + n*n*esz);
+        Mat vt(n, n, type, w.ptr() + n*esz);
 
         eigen(src, w, vt);
         transpose(vt, u);
         SVD::backSubst(w, u, vt, Mat(), _dst);
         return type == CV_32F ?
-        (((float*)w.data)[0] >= FLT_EPSILON ?
-         ((float*)w.data)[n-1]/((float*)w.data)[0] : 0) :
-        (((double*)w.data)[0] >= DBL_EPSILON ?
-         ((double*)w.data)[n-1]/((double*)w.data)[0] : 0);
+        (w.ptr<float>()[0] >= FLT_EPSILON ?
+         w.ptr<float>()[n-1]/w.ptr<float>()[0] : 0) :
+        (w.ptr<double>()[0] >= DBL_EPSILON ?
+         w.ptr<double>()[n-1]/w.ptr<double>()[0] : 0);
     }
 
     CV_Assert( method == DECOMP_LU || method == DECOMP_CHOLESKY );
@@ -986,8 +988,8 @@ double cv::invert( InputArray _src, OutputArray _dst, int method )
 
     if( n <= 3 )
     {
-        uchar* srcdata = src.data;
-        uchar* dstdata = dst.data;
+        const uchar* srcdata = src.ptr();
+        uchar* dstdata = dst.ptr();
         size_t srcstep = src.step;
         size_t dststep = dst.step;
 
@@ -1167,13 +1169,13 @@ double cv::invert( InputArray _src, OutputArray _dst, int method )
     setIdentity(dst);
 
     if( method == DECOMP_LU && type == CV_32F )
-        result = LU((float*)src1.data, src1.step, n, (float*)dst.data, dst.step, n) != 0;
+        result = LU(src1.ptr<float>(), src1.step, n, dst.ptr<float>(), dst.step, n) != 0;
     else if( method == DECOMP_LU && type == CV_64F )
-        result = LU((double*)src1.data, src1.step, n, (double*)dst.data, dst.step, n) != 0;
+        result = LU(src1.ptr<double>(), src1.step, n, dst.ptr<double>(), dst.step, n) != 0;
     else if( method == DECOMP_CHOLESKY && type == CV_32F )
-        result = Cholesky((float*)src1.data, src1.step, n, (float*)dst.data, dst.step, n);
+        result = Cholesky(src1.ptr<float>(), src1.step, n, dst.ptr<float>(), dst.step, n);
     else
-        result = Cholesky((double*)src1.data, src1.step, n, (double*)dst.data, dst.step, n);
+        result = Cholesky(src1.ptr<double>(), src1.step, n, dst.ptr<double>(), dst.step, n);
 
     if( !result )
         dst = Scalar(0);
@@ -1210,9 +1212,9 @@ bool cv::solve( InputArray _src, InputArray _src2arg, OutputArray _dst, int meth
         #define bf(y) ((float*)(bdata + y*src2step))[0]
         #define bd(y) ((double*)(bdata + y*src2step))[0]
 
-        uchar* srcdata = src.data;
-        uchar* bdata = _src2.data;
-        uchar* dstdata = dst.data;
+        const uchar* srcdata = src.ptr();
+        const uchar* bdata = _src2.ptr();
+        uchar* dstdata = dst.ptr();
         size_t srcstep = src.step;
         size_t src2step = _src2.step;
         size_t dststep = dst.step;
@@ -1463,7 +1465,7 @@ bool cv::solve( InputArray _src, InputArray _src2arg, OutputArray _dst, int meth
 
 /////////////////// finding eigenvalues and eigenvectors of a symmetric matrix ///////////////
 
-bool cv::eigen( InputArray _src, bool computeEvects, OutputArray _evals, OutputArray _evects )
+bool cv::eigen( InputArray _src, OutputArray _evals, OutputArray _evects )
 {
     Mat src = _src.getMat();
     int type = src.type();
@@ -1473,7 +1475,7 @@ bool cv::eigen( InputArray _src, bool computeEvects, OutputArray _evals, OutputA
     CV_Assert (type == CV_32F || type == CV_64F);
 
     Mat v;
-    if( computeEvects )
+    if( _evects.needed() )
     {
         _evects.create(n, n, type);
         v = _evects.getMat();
@@ -1491,16 +1493,6 @@ bool cv::eigen( InputArray _src, bool computeEvects, OutputArray _evals, OutputA
 
     w.copyTo(_evals);
     return ok;
-}
-
-bool cv::eigen( InputArray src, OutputArray evals, int, int )
-{
-    return eigen(src, false, evals, noArray());
-}
-
-bool cv::eigen( InputArray src, OutputArray evals, OutputArray evects, int, int)
-{
-    return eigen(src, true, evals, evects);
 }
 
 namespace cv
@@ -1565,13 +1557,17 @@ static void _SVDcompute( InputArray _aarr, OutputArray _w,
     {
         if( !at )
         {
-            transpose(temp_u, _u);
-            temp_v.copyTo(_vt);
+            if( _u.needed() )
+                transpose(temp_u, _u);
+            if( _vt.needed() )
+                temp_v.copyTo(_vt);
         }
         else
         {
-            transpose(temp_v, _u);
-            temp_u.copyTo(_vt);
+            if( _u.needed() )
+                transpose(temp_v, _u);
+            if( _vt.needed() )
+                temp_u.copyTo(_vt);
         }
     }
 }
@@ -1670,7 +1666,6 @@ cvDet( const CvArr* arr )
             if( rows == 3 )
                 return det3(Md);
         }
-        return cv::determinant(cv::Mat(mat));
     }
     return cv::determinant(cv::cvarrToMat(arr));
 }
@@ -1705,32 +1700,32 @@ cvSolve( const CvArr* Aarr, const CvArr* barr, CvArr* xarr, int method )
 
 CV_IMPL void
 cvEigenVV( CvArr* srcarr, CvArr* evectsarr, CvArr* evalsarr, double,
-           int lowindex, int highindex)
+           int, int )
 {
     cv::Mat src = cv::cvarrToMat(srcarr), evals0 = cv::cvarrToMat(evalsarr), evals = evals0;
     if( evectsarr )
     {
         cv::Mat evects0 = cv::cvarrToMat(evectsarr), evects = evects0;
-        eigen(src, evals, evects, lowindex, highindex);
+        eigen(src, evals, evects);
         if( evects0.data != evects.data )
         {
-            uchar* p = evects0.data;
+            const uchar* p = evects0.ptr();
             evects.convertTo(evects0, evects0.type());
-            CV_Assert( p == evects0.data );
+            CV_Assert( p == evects0.ptr() );
         }
     }
     else
-        eigen(src, evals, lowindex, highindex);
+        eigen(src, evals);
     if( evals0.data != evals.data )
     {
-        uchar* p = evals0.data;
+        const uchar* p = evals0.ptr();
         if( evals0.size() == evals.size() )
             evals.convertTo(evals0, evals0.type());
         else if( evals0.type() == evals.type() )
             cv::transpose(evals, evals0);
         else
             cv::Mat(evals.t()).convertTo(evals0, evals0.type());
-        CV_Assert( p == evals0.data );
+        CV_Assert( p == evals0.ptr() );
     }
 }
 
@@ -1748,7 +1743,7 @@ cvSVD( CvArr* aarr, CvArr* warr, CvArr* uarr, CvArr* varr, int flags )
     cv::SVD svd;
 
     if( w.size() == cv::Size(nm, 1) )
-        svd.w = cv::Mat(nm, 1, type, w.data );
+        svd.w = cv::Mat(nm, 1, type, w.ptr() );
     else if( w.isContinuous() )
         svd.w = w;
 
@@ -1771,7 +1766,7 @@ cvSVD( CvArr* aarr, CvArr* warr, CvArr* uarr, CvArr* varr, int flags )
         ((m != n && (svd.u.size() == cv::Size(mn, mn) ||
         svd.vt.size() == cv::Size(mn, mn))) ? cv::SVD::FULL_UV : 0));
 
-    if( u.data )
+    if( !u.empty() )
     {
         if( flags & CV_SVD_U_T )
             cv::transpose( svd.u, u );
@@ -1782,7 +1777,7 @@ cvSVD( CvArr* aarr, CvArr* warr, CvArr* uarr, CvArr* varr, int flags )
         }
     }
 
-    if( v.data )
+    if( !v.empty() )
     {
         if( !(flags & CV_SVD_V_T) )
             cv::transpose( svd.vt, v );

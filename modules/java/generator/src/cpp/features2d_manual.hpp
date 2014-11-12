@@ -4,22 +4,24 @@
 #include "opencv2/opencv_modules.hpp"
 
 #ifdef HAVE_OPENCV_FEATURES2D
-#include "opencv2/features2d/features2d.hpp"
+#include "opencv2/features2d.hpp"
 
 #undef SIMPLEBLOB // to solve conflict with wincrypt.h on windows
 
 namespace cv
 {
 
-class CV_EXPORTS_AS(FeatureDetector) javaFeatureDetector : public FeatureDetector
+class CV_EXPORTS_AS(FeatureDetector) javaFeatureDetector
 {
 public:
-#if 0
-    //DO NOT REMOVE! The block is required for sources parser
-    CV_WRAP void detect( const Mat& image, CV_OUT vector<KeyPoint>& keypoints, const Mat& mask=Mat() ) const;
-    CV_WRAP void detect( const vector<Mat>& images, CV_OUT vector<vector<KeyPoint> >& keypoints, const vector<Mat>& masks=vector<Mat>() ) const;
-    CV_WRAP virtual bool empty() const;
-#endif
+    CV_WRAP void detect( const Mat& image, CV_OUT std::vector<KeyPoint>& keypoints, const Mat& mask=Mat() ) const
+    { return wrapped->detect(image, keypoints, mask); }
+
+    CV_WRAP void detect( const std::vector<Mat>& images, CV_OUT std::vector<std::vector<KeyPoint> >& keypoints, const std::vector<Mat>& masks=std::vector<Mat>() ) const
+    { return wrapped->detect(images, keypoints, masks); }
+
+    CV_WRAP bool empty() const
+    { return wrapped->empty(); }
 
     enum
     {
@@ -34,10 +36,10 @@ public:
         SIMPLEBLOB    = 9,
         DENSE         = 10,
         BRISK         = 11,
+        AKAZE         = 12,
 
 
         GRIDDETECTOR = 1000,
-        GRIDRETECTOR = 1000,
 
         GRID_FAST          = GRIDDETECTOR + FAST,
         GRID_STAR          = GRIDDETECTOR + STAR,
@@ -50,6 +52,7 @@ public:
         GRID_SIMPLEBLOB    = GRIDDETECTOR + SIMPLEBLOB,
         GRID_DENSE         = GRIDDETECTOR + DENSE,
         GRID_BRISK         = GRIDDETECTOR + BRISK,
+        GRID_AKAZE         = GRIDDETECTOR + AKAZE,
 
 
         PYRAMIDDETECTOR = 2000,
@@ -65,6 +68,7 @@ public:
         PYRAMID_SIMPLEBLOB = PYRAMIDDETECTOR + SIMPLEBLOB,
         PYRAMID_DENSE      = PYRAMIDDETECTOR + DENSE,
         PYRAMID_BRISK      = PYRAMIDDETECTOR + BRISK,
+        PYRAMID_AKAZE      = PYRAMIDDETECTOR + AKAZE,
 
         DYNAMICDETECTOR = 3000,
 
@@ -78,116 +82,147 @@ public:
         DYNAMIC_HARRIS     = DYNAMICDETECTOR + HARRIS,
         DYNAMIC_SIMPLEBLOB = DYNAMICDETECTOR + SIMPLEBLOB,
         DYNAMIC_DENSE      = DYNAMICDETECTOR + DENSE,
-        DYNAMIC_BRISK      = DYNAMICDETECTOR + BRISK
+        DYNAMIC_BRISK      = DYNAMICDETECTOR + BRISK,
+        DYNAMIC_AKAZE      = DYNAMICDETECTOR + AKAZE
     };
 
-    //supported: FAST STAR SIFT SURF ORB MSER GFTT HARRIS BRISK Grid(XXXX) Pyramid(XXXX) Dynamic(XXXX)
+    //supported: FAST STAR SIFT SURF ORB MSER GFTT HARRIS BRISK AKAZE Grid(XXXX) Pyramid(XXXX) Dynamic(XXXX)
     //not supported: SimpleBlob, Dense
     CV_WRAP static javaFeatureDetector* create( int detectorType )
     {
-        string name;
+        //String name;
         if (detectorType > DYNAMICDETECTOR)
         {
-            name = "Dynamic";
+            //name = "Dynamic";
             detectorType -= DYNAMICDETECTOR;
         }
         if (detectorType > PYRAMIDDETECTOR)
         {
-            name = "Pyramid";
+            //name = "Pyramid";
             detectorType -= PYRAMIDDETECTOR;
         }
         if (detectorType > GRIDDETECTOR)
         {
-            name = "Grid";
+            //name = "Grid";
             detectorType -= GRIDDETECTOR;
         }
 
+        Ptr<FeatureDetector> fd;
         switch(detectorType)
         {
         case FAST:
-            name += "FAST";
+            fd = FastFeatureDetector::create();
             break;
-        case STAR:
-            name += "STAR";
-            break;
-        case SIFT:
-            name += "SIFT";
-            break;
-        case SURF:
-            name += "SURF";
-            break;
+        //case STAR:
+        //    fd = xfeatures2d::StarDetector::create();
+        //    break;
+        //case SIFT:
+        //    name = name + "SIFT";
+        //    break;
+        //case SURF:
+        //    name = name + "SURF";
+        //    break;
         case ORB:
-            name += "ORB";
+            fd = ORB::create();
             break;
         case MSER:
-            name += "MSER";
+            fd = MSER::create();
             break;
         case GFTT:
-            name += "GFTT";
+            fd = GFTTDetector::create();
             break;
         case HARRIS:
-            name += "HARRIS";
+            {
+            Ptr<GFTTDetector> gftt = GFTTDetector::create();
+            gftt->setHarrisDetector(true);
+            fd = gftt;
+            }
             break;
         case SIMPLEBLOB:
-            name += "SimpleBlob";
+            fd = SimpleBlobDetector::create();
             break;
-        case DENSE:
-            name += "Dense";
-            break;
+        //case DENSE:
+        //    name = name + "Dense";
+        //    break;
         case BRISK:
-            name += "BRISK";
+            fd = BRISK::create();
+            break;
+        case AKAZE:
+            fd = AKAZE::create();
             break;
         default:
-            CV_Error( CV_StsBadArg, "Specified feature detector type is not supported." );
+            CV_Error( Error::StsBadArg, "Specified feature detector type is not supported." );
             break;
         }
 
-        Ptr<FeatureDetector> detector = FeatureDetector::create(name);
-        detector.addref();
-        return (javaFeatureDetector*)((FeatureDetector*) detector);
+        return new javaFeatureDetector(fd);
     }
 
-    CV_WRAP void write( const string& fileName ) const
+    CV_WRAP void write( const String& fileName ) const
     {
         FileStorage fs(fileName, FileStorage::WRITE);
-        ((FeatureDetector*)this)->write(fs);
-        fs.release();
+        wrapped->write(fs);
     }
 
-    CV_WRAP void read( const string& fileName )
+    CV_WRAP void read( const String& fileName )
     {
         FileStorage fs(fileName, FileStorage::READ);
-        ((FeatureDetector*)this)->read(fs.root());
-        fs.release();
+        wrapped->read(fs.root());
     }
+
+private:
+    javaFeatureDetector(Ptr<FeatureDetector> _wrapped) : wrapped(_wrapped)
+    {}
+
+    Ptr<FeatureDetector> wrapped;
 };
 
-class CV_EXPORTS_AS(DescriptorMatcher) javaDescriptorMatcher : public DescriptorMatcher
+class CV_EXPORTS_AS(DescriptorMatcher) javaDescriptorMatcher
 {
 public:
-#if 0
-    //DO NOT REMOVE! The block is required for sources parser
-    CV_WRAP virtual bool isMaskSupported() const;
-    CV_WRAP virtual void add( const vector<Mat>& descriptors );
-    CV_WRAP const vector<Mat>& getTrainDescriptors() const;
-    CV_WRAP virtual void clear();
-    CV_WRAP virtual bool empty() const;
-    CV_WRAP virtual void train();
+    CV_WRAP bool isMaskSupported() const
+    { return wrapped->isMaskSupported(); }
+
+    CV_WRAP void add( const std::vector<Mat>& descriptors )
+    { return wrapped->add(descriptors); }
+
+    CV_WRAP const std::vector<Mat>& getTrainDescriptors() const
+    { return wrapped->getTrainDescriptors(); }
+
+    CV_WRAP void clear()
+    { return wrapped->clear(); }
+
+    CV_WRAP bool empty() const
+    { return wrapped->empty(); }
+
+    CV_WRAP void train()
+    { return wrapped->train(); }
+
     CV_WRAP void match( const Mat& queryDescriptors, const Mat& trainDescriptors,
-                CV_OUT vector<DMatch>& matches, const Mat& mask=Mat() ) const;
+                CV_OUT std::vector<DMatch>& matches, const Mat& mask=Mat() ) const
+    { return wrapped->match(queryDescriptors, trainDescriptors, matches, mask); }
+
     CV_WRAP void knnMatch( const Mat& queryDescriptors, const Mat& trainDescriptors,
-                   CV_OUT vector<vector<DMatch> >& matches, int k,
-                   const Mat& mask=Mat(), bool compactResult=false ) const;
+                   CV_OUT std::vector<std::vector<DMatch> >& matches, int k,
+                   const Mat& mask=Mat(), bool compactResult=false ) const
+    { return wrapped->knnMatch(queryDescriptors, trainDescriptors, matches, k, mask, compactResult); }
+
     CV_WRAP void radiusMatch( const Mat& queryDescriptors, const Mat& trainDescriptors,
-                      CV_OUT vector<vector<DMatch> >& matches, float maxDistance,
-                      const Mat& mask=Mat(), bool compactResult=false ) const;
-    CV_WRAP void match( const Mat& queryDescriptors, CV_OUT vector<DMatch>& matches,
-                const vector<Mat>& masks=vector<Mat>() );
-    CV_WRAP void knnMatch( const Mat& queryDescriptors, CV_OUT vector<vector<DMatch> >& matches, int k,
-           const vector<Mat>& masks=vector<Mat>(), bool compactResult=false );
-    CV_WRAP void radiusMatch( const Mat& queryDescriptors, CV_OUT vector<vector<DMatch> >& matches, float maxDistance,
-                   const vector<Mat>& masks=vector<Mat>(), bool compactResult=false );
-#endif
+                      CV_OUT std::vector<std::vector<DMatch> >& matches, float maxDistance,
+                      const Mat& mask=Mat(), bool compactResult=false ) const
+    { return wrapped->radiusMatch(queryDescriptors, trainDescriptors, matches, maxDistance, mask, compactResult); }
+
+    CV_WRAP void match( const Mat& queryDescriptors, CV_OUT std::vector<DMatch>& matches,
+                const std::vector<Mat>& masks=std::vector<Mat>() )
+    { return wrapped->match(queryDescriptors, matches, masks); }
+
+    CV_WRAP void knnMatch( const Mat& queryDescriptors, CV_OUT std::vector<std::vector<DMatch> >& matches, int k,
+           const std::vector<Mat>& masks=std::vector<Mat>(), bool compactResult=false )
+    { return wrapped->knnMatch(queryDescriptors, matches, k, masks, compactResult); }
+
+    CV_WRAP void radiusMatch( const Mat& queryDescriptors, CV_OUT std::vector<std::vector<DMatch> >& matches, float maxDistance,
+                   const std::vector<Mat>& masks=std::vector<Mat>(), bool compactResult=false )
+    { return wrapped->radiusMatch(queryDescriptors, matches, maxDistance, masks, compactResult); }
 
     enum
     {
@@ -201,15 +236,13 @@ public:
 
     CV_WRAP_AS(clone) javaDescriptorMatcher* jclone( bool emptyTrainData=false ) const
     {
-        Ptr<DescriptorMatcher> matcher = this->clone(emptyTrainData);
-        matcher.addref();
-        return (javaDescriptorMatcher*)((DescriptorMatcher*) matcher);
+        return new javaDescriptorMatcher(wrapped->clone(emptyTrainData));
     }
 
     //supported: FlannBased, BruteForce, BruteForce-L1, BruteForce-Hamming, BruteForce-HammingLUT
     CV_WRAP static javaDescriptorMatcher* create( int matcherType )
     {
-        string name;
+        String name;
 
         switch(matcherType)
         {
@@ -232,42 +265,49 @@ public:
             name = "BruteForce-SL2";
             break;
         default:
-            CV_Error( CV_StsBadArg, "Specified descriptor matcher type is not supported." );
+            CV_Error( Error::StsBadArg, "Specified descriptor matcher type is not supported." );
             break;
         }
 
-        Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(name);
-        matcher.addref();
-        return (javaDescriptorMatcher*)((DescriptorMatcher*) matcher);
+        return new javaDescriptorMatcher(DescriptorMatcher::create(name));
     }
 
-    CV_WRAP void write( const string& fileName ) const
+    CV_WRAP void write( const String& fileName ) const
     {
         FileStorage fs(fileName, FileStorage::WRITE);
-        ((DescriptorMatcher*)this)->write(fs);
-        fs.release();
+        wrapped->write(fs);
     }
 
-    CV_WRAP void read( const string& fileName )
+    CV_WRAP void read( const String& fileName )
     {
         FileStorage fs(fileName, FileStorage::READ);
-        ((DescriptorMatcher*)this)->read(fs.root());
-        fs.release();
+        wrapped->read(fs.root());
     }
+
+private:
+    javaDescriptorMatcher(Ptr<DescriptorMatcher> _wrapped) : wrapped(_wrapped)
+    {}
+
+    Ptr<DescriptorMatcher> wrapped;
 };
 
-class CV_EXPORTS_AS(DescriptorExtractor) javaDescriptorExtractor : public DescriptorExtractor
+class CV_EXPORTS_AS(DescriptorExtractor) javaDescriptorExtractor
 {
 public:
-#if 0
-    //DO NOT REMOVE! The block is required for sources parser
-    CV_WRAP void compute( const Mat& image, CV_IN_OUT vector<KeyPoint>& keypoints, Mat& descriptors ) const;
-    CV_WRAP void compute( const vector<Mat>& images, CV_IN_OUT vector<vector<KeyPoint> >& keypoints, CV_OUT vector<Mat>& descriptors ) const;
-    CV_WRAP virtual int descriptorSize() const;
-    CV_WRAP virtual int descriptorType() const;
+    CV_WRAP void compute( const Mat& image, CV_IN_OUT std::vector<KeyPoint>& keypoints, Mat& descriptors ) const
+    { return wrapped->compute(image, keypoints, descriptors); }
 
-    CV_WRAP virtual bool empty() const;
-#endif
+    CV_WRAP void compute( const std::vector<Mat>& images, CV_IN_OUT std::vector<std::vector<KeyPoint> >& keypoints, CV_OUT std::vector<Mat>& descriptors ) const
+    { return wrapped->compute(images, keypoints, descriptors); }
+
+    CV_WRAP int descriptorSize() const
+    { return wrapped->descriptorSize(); }
+
+    CV_WRAP int descriptorType() const
+    { return wrapped->descriptorType(); }
+
+    CV_WRAP bool empty() const
+    { return wrapped->empty(); }
 
     enum
     {
@@ -277,6 +317,7 @@ public:
         BRIEF = 4,
         BRISK = 5,
         FREAK = 6,
+        AKAZE = 7,
 
 
         OPPONENTEXTRACTOR = 1000,
@@ -288,153 +329,71 @@ public:
         OPPONENT_ORB   = OPPONENTEXTRACTOR + ORB,
         OPPONENT_BRIEF = OPPONENTEXTRACTOR + BRIEF,
         OPPONENT_BRISK = OPPONENTEXTRACTOR + BRISK,
-        OPPONENT_FREAK = OPPONENTEXTRACTOR + FREAK
+        OPPONENT_FREAK = OPPONENTEXTRACTOR + FREAK,
+        OPPONENT_AKAZE = OPPONENTEXTRACTOR + AKAZE
     };
 
-    //supported SIFT, SURF, ORB, BRIEF, BRISK, FREAK, Opponent(XXXX)
+    //supported SIFT, SURF, ORB, BRIEF, BRISK, FREAK, AKAZE, Opponent(XXXX)
     //not supported: Calonder
     CV_WRAP static javaDescriptorExtractor* create( int extractorType )
     {
-        string name;
+        //String name;
 
         if (extractorType > OPPONENTEXTRACTOR)
         {
-            name = "Opponent";
+            //name = "Opponent";
             extractorType -= OPPONENTEXTRACTOR;
         }
 
+        Ptr<DescriptorExtractor> de;
         switch(extractorType)
         {
-        case SIFT:
-            name += "SIFT";
-            break;
-        case SURF:
-            name += "SURF";
-            break;
+        //case SIFT:
+        //    name = name + "SIFT";
+        //    break;
+        //case SURF:
+        //    name = name + "SURF";
+        //    break;
         case ORB:
-            name += "ORB";
+            de = ORB::create();
             break;
-        case BRIEF:
-            name += "BRIEF";
-            break;
+        //case BRIEF:
+        //    name = name + "BRIEF";
+        //    break;
         case BRISK:
-            name += "BRISK";
+            de = BRISK::create();
             break;
-        case FREAK:
-            name += "FREAK";
+        //case FREAK:
+        //    name = name + "FREAK";
+        //    break;
+        case AKAZE:
+            de = AKAZE::create();
             break;
         default:
-            CV_Error( CV_StsBadArg, "Specified descriptor extractor type is not supported." );
+            CV_Error( Error::StsBadArg, "Specified descriptor extractor type is not supported." );
             break;
         }
 
-        Ptr<DescriptorExtractor> extractor = DescriptorExtractor::create(name);
-        extractor.addref();
-        return (javaDescriptorExtractor*)((DescriptorExtractor*) extractor);
+        return new javaDescriptorExtractor(de);
     }
 
-    CV_WRAP void write( const string& fileName ) const
+    CV_WRAP void write( const String& fileName ) const
     {
         FileStorage fs(fileName, FileStorage::WRITE);
-        ((DescriptorExtractor*)this)->write(fs);
-        fs.release();
+        wrapped->write(fs);
     }
 
-    CV_WRAP void read( const string& fileName )
+    CV_WRAP void read( const String& fileName )
     {
         FileStorage fs(fileName, FileStorage::READ);
-        ((DescriptorExtractor*)this)->read(fs.root());
-        fs.release();
-    }
-};
-
-class CV_EXPORTS_AS(GenericDescriptorMatcher) javaGenericDescriptorMatcher : public GenericDescriptorMatcher
-{
-public:
-#if 0
-    //DO NOT REMOVE! The block is required for sources parser
-    CV_WRAP virtual void add( const vector<Mat>& images,
-                      vector<vector<KeyPoint> >& keypoints );
-    CV_WRAP const vector<Mat>& getTrainImages() const;
-    CV_WRAP const vector<vector<KeyPoint> >& getTrainKeypoints() const;
-    CV_WRAP virtual void clear();
-    CV_WRAP virtual bool isMaskSupported();
-    CV_WRAP virtual void train();
-    CV_WRAP void classify( const Mat& queryImage, CV_IN_OUT vector<KeyPoint>& queryKeypoints,
-                           const Mat& trainImage, vector<KeyPoint>& trainKeypoints ) const;
-    CV_WRAP void classify( const Mat& queryImage, CV_IN_OUT vector<KeyPoint>& queryKeypoints );
-    CV_WRAP void match( const Mat& queryImage, vector<KeyPoint>& queryKeypoints,
-                const Mat& trainImage, vector<KeyPoint>& trainKeypoints,
-                CV_OUT vector<DMatch>& matches, const Mat& mask=Mat() ) const;
-    CV_WRAP void knnMatch( const Mat& queryImage, vector<KeyPoint>& queryKeypoints,
-                   const Mat& trainImage, vector<KeyPoint>& trainKeypoints,
-                   CV_OUT vector<vector<DMatch> >& matches, int k,
-                   const Mat& mask=Mat(), bool compactResult=false ) const;
-    CV_WRAP void radiusMatch( const Mat& queryImage, vector<KeyPoint>& queryKeypoints,
-                      const Mat& trainImage, vector<KeyPoint>& trainKeypoints,
-                      CV_OUT vector<vector<DMatch> >& matches, float maxDistance,
-                      const Mat& mask=Mat(), bool compactResult=false ) const;
-    CV_WRAP void match( const Mat& queryImage, vector<KeyPoint>& queryKeypoints,
-                CV_OUT vector<DMatch>& matches, const vector<Mat>& masks=vector<Mat>() );
-    CV_WRAP void knnMatch( const Mat& queryImage, vector<KeyPoint>& queryKeypoints,
-                   CV_OUT vector<vector<DMatch> >& matches, int k,
-                   const vector<Mat>& masks=vector<Mat>(), bool compactResult=false );
-    CV_WRAP void radiusMatch( const Mat& queryImage, vector<KeyPoint>& queryKeypoints,
-                      CV_OUT vector<vector<DMatch> >& matches, float maxDistance,
-                      const vector<Mat>& masks=vector<Mat>(), bool compactResult=false );
-    CV_WRAP virtual bool empty() const;
-#endif
-
-    enum
-    {
-        ONEWAY = 1,
-        FERN   = 2
-    };
-
-    CV_WRAP_AS(clone) javaGenericDescriptorMatcher* jclone( bool emptyTrainData=false ) const
-    {
-        Ptr<GenericDescriptorMatcher> matcher = this->clone(emptyTrainData);
-        matcher.addref();
-        return (javaGenericDescriptorMatcher*)((GenericDescriptorMatcher*) matcher);
+        wrapped->read(fs.root());
     }
 
-    //supported: OneWay, Fern
-    //unsupported: Vector
-    CV_WRAP static javaGenericDescriptorMatcher* create( int matcherType )
-    {
-        string name;
+private:
+    javaDescriptorExtractor(Ptr<DescriptorExtractor> _wrapped) : wrapped(_wrapped)
+    {}
 
-        switch(matcherType)
-        {
-        case ONEWAY:
-            name = "ONEWAY";
-            break;
-        case FERN:
-            name = "FERN";
-            break;
-        default:
-            CV_Error( CV_StsBadArg, "Specified generic descriptor matcher type is not supported." );
-            break;
-        }
-
-        Ptr<GenericDescriptorMatcher> matcher = GenericDescriptorMatcher::create(name);
-        matcher.addref();
-        return (javaGenericDescriptorMatcher*)((GenericDescriptorMatcher*) matcher);
-    }
-
-    CV_WRAP void write( const string& fileName ) const
-    {
-        FileStorage fs(fileName, FileStorage::WRITE);
-        ((GenericDescriptorMatcher*)this)->write(fs);
-        fs.release();
-    }
-
-    CV_WRAP void read( const string& fileName )
-    {
-        FileStorage fs(fileName, FileStorage::READ);
-        ((GenericDescriptorMatcher*)this)->read(fs.root());
-        fs.release();
-    }
+    Ptr<DescriptorExtractor> wrapped;
 };
 
 #if 0
@@ -449,21 +408,21 @@ enum
 };
 
 // Draw keypoints.
-CV_EXPORTS_W void drawKeypoints( const Mat& image, const vector<KeyPoint>& keypoints, Mat& outImage,
+CV_EXPORTS_W void drawKeypoints( const Mat& image, const std::vector<KeyPoint>& keypoints, Mat& outImage,
                                const Scalar& color=Scalar::all(-1), int flags=0 );
 
 // Draws matches of keypints from two images on output image.
-CV_EXPORTS_W void drawMatches( const Mat& img1, const vector<KeyPoint>& keypoints1,
-                             const Mat& img2, const vector<KeyPoint>& keypoints2,
-                             const vector<DMatch>& matches1to2, Mat& outImg,
+CV_EXPORTS_W void drawMatches( const Mat& img1, const std::vector<KeyPoint>& keypoints1,
+                             const Mat& img2, const std::vector<KeyPoint>& keypoints2,
+                             const std::vector<DMatch>& matches1to2, Mat& outImg,
                              const Scalar& matchColor=Scalar::all(-1), const Scalar& singlePointColor=Scalar::all(-1),
-                             const vector<char>& matchesMask=vector<char>(), int flags=0 );
+                             const std::vector<char>& matchesMask=std::vector<char>(), int flags=0 );
 
-CV_EXPORTS_AS(drawMatches2) void drawMatches( const Mat& img1, const vector<KeyPoint>& keypoints1,
-                             const Mat& img2, const vector<KeyPoint>& keypoints2,
-                             const vector<vector<DMatch> >& matches1to2, Mat& outImg,
+CV_EXPORTS_AS(drawMatches2) void drawMatches( const Mat& img1, const std::vector<KeyPoint>& keypoints1,
+                             const Mat& img2, const std::vector<KeyPoint>& keypoints2,
+                             const std::vector<std::vector<DMatch> >& matches1to2, Mat& outImg,
                              const Scalar& matchColor=Scalar::all(-1), const Scalar& singlePointColor=Scalar::all(-1),
-                             const vector<vector<char> >& matchesMask=vector<vector<char> >(), int flags=0);
+                             const std::vector<std::vector<char> >& matchesMask=std::vector<std::vector<char> >(), int flags=0);
 
 #endif
 

@@ -52,8 +52,8 @@ Code
 
 .. code-block:: cpp
 
-   #include "opencv2/imgproc/imgproc.hpp"
-   #include "opencv2/highgui/highgui.hpp"
+   #include "opencv2/imgproc.hpp"
+   #include "opencv2/highgui.hpp"
    #include <stdlib.h>
    #include <stdio.h>
 
@@ -89,7 +89,7 @@ Code
      printf( " ** Press 'ESC' to exit the program \n");
 
      /// Create window
-     namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+     namedWindow( window_name, WINDOW_AUTOSIZE );
 
      /// Initialize arguments for the filter
      top = (int) (0.05*src.rows); bottom = (int) (0.05*src.rows);
@@ -150,7 +150,7 @@ Explanation
 
    .. code-block:: cpp
 
-     namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+     namedWindow( window_name, WINDOW_AUTOSIZE );
 
 #. Now we initialize the argument that defines the size of the borders (*top*, *bottom*, *left* and *right*). We give them a value of 5% the size of *src*.
 

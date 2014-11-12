@@ -12,7 +12,6 @@ Compares a template against overlapped image regions.
 .. ocv:pyfunction:: cv2.matchTemplate(image, templ, method[, result]) -> result
 
 .. ocv:cfunction:: void cvMatchTemplate( const CvArr* image, const CvArr* templ, CvArr* result, int method )
-.. ocv:pyoldfunction:: cv.MatchTemplate(image, templ, result, method)-> None
 
     :param image: Image where the search is running. It must be 8-bit or 32-bit floating-point.
 
@@ -29,6 +28,7 @@ methods (
 :math:`I` denotes ``image``, :math:`T` ``template``, :math:`R` ``result`` ). The summation is done over template and/or the
 image patch:
 :math:`x' = 0...w-1, y' = 0...h-1`
+
 * method=CV\_TM\_SQDIFF
 
     .. math::

@@ -164,7 +164,7 @@ field is negative (the most-significant bit, or MSB, of the field is set), and t
 Initially the set and the free node list are empty. When a new node is requested from the set, it is taken from the list of free nodes, which is then updated. If the list appears to be empty, a new sequence block is allocated and all the nodes within the block are joined in the list of free nodes. Thus, the ``total``
 field of the set is the total number of nodes both occupied and free. When an occupied node is released, it is added to the list of free nodes. The node released last will be occupied first.
 
-``CvSet`` is used to represent graphs (:ocv:struct:`CvGraph`), sparse multi-dimensional arrays (:ocv:struct:`CvSparseMat`), and planar subdivisions (:ocv:struct:`CvSubdiv2D`).
+``CvSet`` is used to represent graphs (:ocv:struct:`CvGraph`), sparse multi-dimensional arrays (:ocv:struct:`CvSparseMat`), and planar subdivisions (``CvSubdiv2D``).
 
 CvSetElem
 ---------
@@ -279,7 +279,6 @@ CloneSeq
 Creates a copy of a sequence.
 
 .. ocv:cfunction:: CvSeq* cvCloneSeq(  const CvSeq* seq, CvMemStorage* storage=NULL )
-.. ocv:pyoldfunction:: cv.CloneSeq(seq, storage)-> None
 
     :param seq: Sequence
 
@@ -387,9 +386,6 @@ CreateMemStorage
 Creates memory storage.
 
 .. ocv:cfunction:: CvMemStorage* cvCreateMemStorage( int block_size=0 )
-
-.. ocv:pyoldfunction:: cv.CreateMemStorage(blockSize=0) -> memstorage
-
 
     :param block_size: Size of the storage blocks in bytes. If it is 0, the block size is set to a default value - currently it is  about 64K.
 

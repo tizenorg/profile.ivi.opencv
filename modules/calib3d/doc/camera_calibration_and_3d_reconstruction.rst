@@ -68,7 +68,7 @@ is extended as:
 
 .. math::
 
-    \begin{array}{l} \vecthree{x}{y}{z} = R  \vecthree{X}{Y}{Z} + t \\ x' = x/z \\ y' = y/z \\ x'' = x'  \frac{1 + k_1 r^2 + k_2 r^4 + k_3 r^6}{1 + k_4 r^2 + k_5 r^4 + k_6 r^6} + 2 p_1 x' y' + p_2(r^2 + 2 x'^2)  \\ y'' = y'  \frac{1 + k_1 r^2 + k_2 r^4 + k_3 r^6}{1 + k_4 r^2 + k_5 r^4 + k_6 r^6} + p_1 (r^2 + 2 y'^2) + 2 p_2 x' y'  \\ \text{where} \quad r^2 = x'^2 + y'^2  \\ u = f_x*x'' + c_x \\ v = f_y*y'' + c_y \end{array}
+    \begin{array}{l} \vecthree{x}{y}{z} = R  \vecthree{X}{Y}{Z} + t \\ x' = x/z \\ y' = y/z \\ x'' = x'  \frac{1 + k_1 r^2 + k_2 r^4 + k_3 r^6}{1 + k_4 r^2 + k_5 r^4 + k_6 r^6} + 2 p_1 x' y' + p_2(r^2 + 2 x'^2) + s_1 r^2 + s_2 r^4 \\ y'' = y'  \frac{1 + k_1 r^2 + k_2 r^4 + k_3 r^6}{1 + k_4 r^2 + k_5 r^4 + k_6 r^6} + p_1 (r^2 + 2 y'^2) + 2 p_2 x' y' + s_1 r^2 + s_2 r^4 \\ \text{where} \quad r^2 = x'^2 + y'^2  \\ u = f_x*x'' + c_x \\ v = f_y*y'' + c_y \end{array}
 
 :math:`k_1`,
 :math:`k_2`,
@@ -78,11 +78,15 @@ is extended as:
 :math:`k_6` are radial distortion coefficients.
 :math:`p_1` and
 :math:`p_2` are tangential distortion coefficients.
+:math:`s_1`,
+:math:`s_2`,
+:math:`s_3`, and
+:math:`s_4`, are the thin prism distortion coefficients.
 Higher-order coefficients are not considered in OpenCV. In the functions below the coefficients are passed or returned as
 
 .. math::
 
-    (k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])
+    (k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])
 
 vector. That is, if the vector contains four elements, it means that
 :math:`k_3=0` .
@@ -120,13 +124,11 @@ calibrateCamera
 ---------------
 Finds the camera intrinsic and extrinsic parameters from several views of a calibration pattern.
 
-.. ocv:function:: double calibrateCamera( InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints, Size imageSize, InputOutputArray cameraMatrix, InputOutputArray distCoeffs, OutputArrayOfArrays rvecs, OutputArrayOfArrays tvecs, int flags=0, TermCriteria criteria=TermCriteria( TermCriteria::COUNT+TermCriteria::EPS, 30, DBL_EPSILON) )
+.. ocv:function:: double calibrateCamera( InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints, Size imageSize, InputOutputArray cameraMatrix, InputOutputArray distCoeffs, OutputArrayOfArrays rvecs, OutputArrayOfArrays tvecs, int flags=0, TermCriteria criteria=TermCriteria( TermCriteria::COUNT + TermCriteria::EPS, 30, DBL_EPSILON) )
 
-.. ocv:pyfunction:: cv2.calibrateCamera(objectPoints, imagePoints, imageSize[, cameraMatrix[, distCoeffs[, rvecs[, tvecs[, flags[, criteria]]]]]]) -> retval, cameraMatrix, distCoeffs, rvecs, tvecs
+.. ocv:pyfunction:: cv2.calibrateCamera(objectPoints, imagePoints, imageSize, cameraMatrix, distCoeffs[, rvecs[, tvecs[, flags[, criteria]]]]) -> retval, cameraMatrix, distCoeffs, rvecs, tvecs
 
 .. ocv:cfunction:: double cvCalibrateCamera2( const CvMat* object_points, const CvMat* image_points, const CvMat* point_counts, CvSize image_size, CvMat* camera_matrix, CvMat* distortion_coeffs, CvMat* rotation_vectors=NULL, CvMat* translation_vectors=NULL, int flags=0, CvTermCriteria term_crit=cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS,30,DBL_EPSILON) )
-
-.. ocv:pyoldfunction:: cv.CalibrateCamera2(objectPoints, imagePoints, pointCounts, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags=0)-> None
 
     :param objectPoints: In the new interface it is a vector of vectors of calibration pattern points in the calibration pattern coordinate space. The outer vector contains as many elements as the number of the pattern views. If the same calibration pattern is shown in each view and it is fully visible, all the vectors will be the same. Although, it is possible to use partially occluded patterns, or even different patterns in different views. Then, the vectors will be different. The points are 3D, but since they are in a pattern coordinate system, then, if the rig is planar, it may make sense to put the model to a XY coordinate plane so that Z-coordinate of each input object point is 0.
 
@@ -142,7 +144,7 @@ Finds the camera intrinsic and extrinsic parameters from several views of a cali
 
     :param cameraMatrix: Output 3x3 floating-point camera matrix  :math:`A = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{1}` . If  ``CV_CALIB_USE_INTRINSIC_GUESS``  and/or  ``CV_CALIB_FIX_ASPECT_RATIO``  are specified, some or all of  ``fx, fy, cx, cy``  must be initialized before calling the function.
 
-    :param distCoeffs: Output vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])`  of 4, 5, or 8 elements.
+    :param distCoeffs: Output vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])`  of 4, 5, 8 or 12 elements.
 
     :param rvecs: Output  vector  of rotation vectors (see  :ocv:func:`Rodrigues` ) estimated for each pattern view. That is, each k-th rotation vector together with the corresponding k-th translation vector (see the next output parameter description) brings the calibration pattern from the model coordinate space (in which object points are specified) to the world coordinate space, that is, a real position of the calibration pattern in the k-th pattern view (k=0.. *M* -1).
 
@@ -161,6 +163,11 @@ Finds the camera intrinsic and extrinsic parameters from several views of a cali
         * **CV_CALIB_FIX_K1,...,CV_CALIB_FIX_K6** The corresponding radial distortion coefficient is not changed during the optimization. If  ``CV_CALIB_USE_INTRINSIC_GUESS``  is set, the coefficient from the supplied  ``distCoeffs``  matrix is used. Otherwise, it is set to 0.
 
         * **CV_CALIB_RATIONAL_MODEL** Coefficients k4, k5, and k6 are enabled. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the rational model and return 8 coefficients. If the flag is not set, the function computes  and returns  only 5 distortion coefficients.
+
+        * **CALIB_THIN_PRISM_MODEL** Coefficients s1, s2, s3 and s4 are enabled. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the thin prism model and return 12 coefficients. If the flag is not set, the function computes  and returns  only 5 distortion coefficients.
+
+        * **CALIB_FIX_S1_S2_S3_S4** The thin prism distortion coefficients are not changed during the optimization. If  ``CV_CALIB_USE_INTRINSIC_GUESS``  is set, the coefficient from the supplied  ``distCoeffs``  matrix is used. Otherwise, it is set to 0.
+
 
     :param criteria: Termination criteria for the iterative optimization algorithm.
 
@@ -217,9 +224,9 @@ Computes useful camera characteristics from the camera matrix.
 
     :param imageSize: Input image size in pixels.
 
-    :param apertureWidth: Physical width of the sensor.
+    :param apertureWidth: Physical width in mm of the sensor.
 
-    :param apertureHeight: Physical height of the sensor.
+    :param apertureHeight: Physical height in mm of the sensor.
 
     :param fovx: Output field of view in degrees along the horizontal sensor axis.
 
@@ -227,13 +234,15 @@ Computes useful camera characteristics from the camera matrix.
 
     :param focalLength: Focal length of the lens in mm.
 
-    :param principalPoint: Principal point in pixels.
+    :param principalPoint: Principal point in mm.
 
     :param aspectRatio: :math:`f_y/f_x`
 
 The function computes various useful camera characteristics from the previously estimated camera matrix.
 
+.. note::
 
+    Do keep in mind that the unity measure 'mm' stands for whatever unit of measure one chooses for the chessboard pitch (it can thus be any value).
 
 composeRT
 -------------
@@ -279,7 +288,7 @@ For points in an image of a stereo pair, computes the corresponding epilines in 
 
 .. ocv:cfunction:: void cvComputeCorrespondEpilines( const CvMat* points, int which_image, const CvMat* fundamental_matrix, CvMat* correspondent_lines )
 
-.. ocv:pyoldfunction:: cv.ComputeCorrespondEpilines(points, whichImage, F, lines) -> None
+.. ocv:pyfunction:: cv2.computeCorrespondEpilines(points, whichImage, F[, lines]) -> lines
 
     :param points: Input points.  :math:`N \times 1`  or  :math:`1 \times N`  matrix of type  ``CV_32FC2``  or  ``vector<Point2f>`` .
 
@@ -354,7 +363,6 @@ Converts points to/from homogeneous coordinates.
 .. ocv:function:: void convertPointsHomogeneous( InputArray src, OutputArray dst )
 
 .. ocv:cfunction:: void cvConvertPointsHomogeneous( const CvMat* src, CvMat* dst )
-.. ocv:pyoldfunction:: cv.ConvertPointsHomogeneous(src, dst) -> None
 
     :param src: Input array or vector of 2D, 3D, or 4D points.
 
@@ -400,8 +408,6 @@ Decomposes a projection matrix into a rotation matrix and a camera matrix.
 
 .. ocv:cfunction:: void cvDecomposeProjectionMatrix( const CvMat * projMatr, CvMat * calibMatr, CvMat * rotMatr, CvMat * posVect, CvMat * rotMatrX=NULL, CvMat * rotMatrY=NULL, CvMat * rotMatrZ=NULL, CvPoint3D64f * eulerAngles=NULL )
 
-.. ocv:pyoldfunction:: cv.DecomposeProjectionMatrix(projMatrix, cameraMatrix, rotMatrix, transVect, rotMatrX=None, rotMatrY=None, rotMatrZ=None) -> eulerAngles
-
     :param projMatrix: 3x4 input projection matrix P.
 
     :param cameraMatrix: Output 3x3 camera matrix K.
@@ -433,10 +439,9 @@ Renders the detected chessboard corners.
 
 .. ocv:function:: void drawChessboardCorners( InputOutputArray image, Size patternSize, InputArray corners, bool patternWasFound )
 
-.. ocv:pyfunction:: cv2.drawChessboardCorners(image, patternSize, corners, patternWasFound) -> None
+.. ocv:pyfunction:: cv2.drawChessboardCorners(image, patternSize, corners, patternWasFound) -> image
 
 .. ocv:cfunction:: void cvDrawChessboardCorners( CvArr* image, CvSize pattern_size, CvPoint2D32f* corners, int count, int pattern_was_found )
-.. ocv:pyoldfunction:: cv.DrawChessboardCorners(image, patternSize, corners, patternWasFound)-> None
 
     :param image: Destination image. It must be an 8-bit color image.
 
@@ -454,12 +459,11 @@ findChessboardCorners
 -------------------------
 Finds the positions of internal corners of the chessboard.
 
-.. ocv:function:: bool findChessboardCorners( InputArray image, Size patternSize, OutputArray corners, int flags=CALIB_CB_ADAPTIVE_THRESH+CALIB_CB_NORMALIZE_IMAGE )
+.. ocv:function:: bool findChessboardCorners( InputArray image, Size patternSize, OutputArray corners, int flags=CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE )
 
 .. ocv:pyfunction:: cv2.findChessboardCorners(image, patternSize[, corners[, flags]]) -> retval, corners
 
 .. ocv:cfunction:: int cvFindChessboardCorners( const void* image, CvSize pattern_size, CvPoint2D32f* corners, int* corner_count=NULL, int flags=CV_CALIB_CB_ADAPTIVE_THRESH+CV_CALIB_CB_NORMALIZE_IMAGE )
-.. ocv:pyoldfunction:: cv.FindChessboardCorners(image, patternSize, flags=CV_CALIB_CB_ADAPTIVE_THRESH) -> corners
 
     :param image: Source chessboard view. It must be an 8-bit grayscale or color image.
 
@@ -513,9 +517,9 @@ findCirclesGrid
 -------------------
 Finds centers in the grid of circles.
 
-.. ocv:function:: bool findCirclesGrid( InputArray image, Size patternSize, OutputArray centers, int flags=CALIB_CB_SYMMETRIC_GRID, const Ptr<FeatureDetector> &blobDetector = new SimpleBlobDetector() )
+.. ocv:function:: bool findCirclesGrid( InputArray image, Size patternSize, OutputArray centers, int flags=CALIB_CB_SYMMETRIC_GRID, const Ptr<FeatureDetector> &blobDetector = makePtr<SimpleBlobDetector>() )
 
-.. ocv:pyfunction:: cv2.findCirclesGridDefault(image, patternSize[, centers[, flags]]) -> retval, centers
+.. ocv:pyfunction:: cv2.findCirclesGrid(image, patternSize[, centers[, flags[, blobDetector]]]) -> retval, centers
 
     :param image: grid view of input circles; it must be an 8-bit grayscale or color image.
 
@@ -558,13 +562,11 @@ solvePnP
 ------------
 Finds an object pose from 3D-2D point correspondences.
 
-.. ocv:function:: bool solvePnP( InputArray objectPoints, InputArray imagePoints, InputArray cameraMatrix, InputArray distCoeffs, OutputArray rvec, OutputArray tvec, bool useExtrinsicGuess=false, int flags=ITERATIVE )
+.. ocv:function:: bool solvePnP( InputArray objectPoints, InputArray imagePoints, InputArray cameraMatrix, InputArray distCoeffs, OutputArray rvec, OutputArray tvec, bool useExtrinsicGuess=false, int flags=SOLVEPNP_ITERATIVE )
 
 .. ocv:pyfunction:: cv2.solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs[, rvec[, tvec[, useExtrinsicGuess[, flags]]]]) -> retval, rvec, tvec
 
 .. ocv:cfunction:: void cvFindExtrinsicCameraParams2( const CvMat* object_points, const CvMat* image_points, const CvMat* camera_matrix, const CvMat* distortion_coeffs, CvMat* rotation_vector, CvMat* translation_vector, int use_extrinsic_guess=0 )
-
-.. ocv:pyoldfunction:: cv.FindExtrinsicCameraParams2(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess=0 ) -> None
 
     :param objectPoints: Array of object points in the object coordinate space, 3xN/Nx3 1-channel or 1xN/Nx1 3-channel, where N is the number of points.  ``vector<Point3f>``  can be also passed here.
 
@@ -572,31 +574,33 @@ Finds an object pose from 3D-2D point correspondences.
 
     :param cameraMatrix: Input camera matrix  :math:`A = \vecthreethree{fx}{0}{cx}{0}{fy}{cy}{0}{0}{1}` .
 
-    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])`  of 4, 5, or 8 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
+    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])`  of 4, 5, 8 or 12 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
 
     :param rvec: Output rotation vector (see  :ocv:func:`Rodrigues` ) that, together with  ``tvec`` , brings points from the model coordinate system to the camera coordinate system.
 
     :param tvec: Output translation vector.
 
-    :param useExtrinsicGuess: If true (1), the function uses the provided  ``rvec``  and  ``tvec``  values as initial approximations of the rotation and translation vectors, respectively, and further optimizes them.
+    :param useExtrinsicGuess: Parameter used for SOLVEPNP_ITERATIVE. If true (1), the function uses the provided  ``rvec``  and  ``tvec``  values as initial approximations of the rotation and translation vectors, respectively, and further optimizes them.
 
     :param flags: Method for solving a PnP problem:
 
-            *  **CV_ITERATIVE** Iterative method is based on Levenberg-Marquardt optimization. In this case the function finds such a pose that minimizes reprojection error, that is the sum of squared distances between the observed projections ``imagePoints`` and the projected (using :ocv:func:`projectPoints` ) ``objectPoints`` .
-            *  **CV_P3P**  Method is based on the paper of X.S. Gao, X.-R. Hou, J. Tang, H.-F. Chang "Complete Solution Classification for the Perspective-Three-Point Problem". In this case the function requires exactly four object and image points.
-            *  **CV_EPNP** Method has been introduced by F.Moreno-Noguer, V.Lepetit and P.Fua in the paper "EPnP: Efficient Perspective-n-Point Camera Pose Estimation".
+            *  **SOLVEPNP_ITERATIVE** Iterative method is based on Levenberg-Marquardt optimization. In this case the function finds such a pose that minimizes reprojection error, that is the sum of squared distances between the observed projections ``imagePoints`` and the projected (using :ocv:func:`projectPoints` ) ``objectPoints`` .
+            *  **SOLVEPNP_P3P**  Method is based on the paper of X.S. Gao, X.-R. Hou, J. Tang, H.-F. Chang "Complete Solution Classification for the Perspective-Three-Point Problem". In this case the function requires exactly four object and image points.
+            *  **SOLVEPNP_EPNP** Method has been introduced by F.Moreno-Noguer, V.Lepetit and P.Fua in the paper "EPnP: Efficient Perspective-n-Point Camera Pose Estimation".
+            *  **SOLVEPNP_DLS**  Method is based on the paper of Joel A. Hesch and Stergios I. Roumeliotis. "A Direct Least-Squares (DLS) Method for PnP".
+            *  **SOLVEPNP_UPNP** Method is based on the paper of A.Penate-Sanchez, J.Andrade-Cetto, F.Moreno-Noguer. "Exhaustive Linearization for Robust Camera Pose and Focal Length Estimation". In this case the function also estimates the parameters :math:`f_x` and :math:`f_y` assuming that both have the same value. Then the ``cameraMatrix`` is updated with the estimated focal length.
 
 The function estimates the object pose given a set of object points, their corresponding image projections, as well as the camera matrix and the distortion coefficients.
 
 .. note::
 
-   * An example of how to use solvePNP for planar augmented reality can be found at opencv_source_code/samples/python2/plane_ar.py
+   * An example of how to use solvePnP for planar augmented reality can be found at opencv_source_code/samples/python2/plane_ar.py
 
 solvePnPRansac
 ------------------
 Finds an object pose from 3D-2D point correspondences using the RANSAC scheme.
 
-.. ocv:function:: void solvePnPRansac( InputArray objectPoints, InputArray imagePoints, InputArray cameraMatrix, InputArray distCoeffs, OutputArray rvec, OutputArray tvec, bool useExtrinsicGuess=false, int iterationsCount = 100, float reprojectionError = 8.0, int minInliersCount = 100, OutputArray inliers = noArray(), int flags = ITERATIVE )
+.. ocv:function:: bool solvePnPRansac( InputArray objectPoints, InputArray imagePoints, InputArray cameraMatrix, InputArray distCoeffs, OutputArray rvec, OutputArray tvec, bool useExtrinsicGuess=false, int iterationsCount = 100, float reprojectionError = 8.0, double confidence = 0.99, OutputArray inliers = noArray(), int flags = SOLVEPNP_ITERATIVE )
 
 .. ocv:pyfunction:: cv2.solvePnPRansac(objectPoints, imagePoints, cameraMatrix, distCoeffs[, rvec[, tvec[, useExtrinsicGuess[, iterationsCount[, reprojectionError[, minInliersCount[, inliers[, flags]]]]]]]]) -> rvec, tvec, inliers
 
@@ -606,27 +610,30 @@ Finds an object pose from 3D-2D point correspondences using the RANSAC scheme.
 
     :param cameraMatrix: Input camera matrix  :math:`A = \vecthreethree{fx}{0}{cx}{0}{fy}{cy}{0}{0}{1}` .
 
-    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])`  of 4, 5, or 8 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
+    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])`  of 4, 5, 8 or 12 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
 
     :param rvec: Output rotation vector (see  :ocv:func:`Rodrigues` ) that, together with  ``tvec`` , brings points from the model coordinate system to the camera coordinate system.
 
     :param tvec: Output translation vector.
 
-    :param useExtrinsicGuess: If true (1), the function uses the provided  ``rvec``  and  ``tvec`` values as initial approximations of the rotation and translation vectors, respectively, and further optimizes them.
+    :param useExtrinsicGuess: Parameter used for SOLVEPNP_ITERATIVE. If true (1), the function uses the provided  ``rvec``  and  ``tvec`` values as initial approximations of the rotation and translation vectors, respectively, and further optimizes them.
 
     :param iterationsCount: Number of iterations.
 
     :param reprojectionError: Inlier threshold value used by the RANSAC procedure. The parameter value is the maximum allowed distance between the observed and computed point projections to consider it an inlier.
 
-    :param minInliersCount: Number of inliers. If the algorithm at some stage finds more inliers than ``minInliersCount`` , it finishes.
+    :param confidence: The probability that the algorithm produces a useful result.
 
     :param inliers: Output vector that contains indices of inliers in ``objectPoints`` and ``imagePoints`` .
 
     :param flags: Method for solving a PnP problem (see  :ocv:func:`solvePnP` ).
 
 The function estimates an object pose given a set of object points, their corresponding image projections, as well as the camera matrix and the distortion coefficients. This function finds such a pose that minimizes reprojection error, that is, the sum of squared distances between the observed projections ``imagePoints`` and the projected (using
-:ocv:func:`projectPoints` ) ``objectPoints``. The use of RANSAC makes the function resistant to outliers. The function is parallelized with the TBB library.
+:ocv:func:`projectPoints` ) ``objectPoints``. The use of RANSAC makes the function resistant to outliers.
 
+.. note::
+
+   * An example of how to use solvePNPRansac for object detection can be found at opencv_source_code/samples/cpp/tutorial_code/calib3d/real_time_pose_estimation/
 
 
 findFundamentalMat
@@ -638,7 +645,6 @@ Calculates a fundamental matrix from the corresponding points in two images.
 .. ocv:pyfunction:: cv2.findFundamentalMat(points1, points2[, method[, param1[, param2[, mask]]]]) -> retval, mask
 
 .. ocv:cfunction:: int cvFindFundamentalMat( const CvMat* points1, const CvMat* points2, CvMat* fundamental_matrix, int method=CV_FM_RANSAC, double param1=3., double param2=0.99, CvMat* status=NULL )
-.. ocv:pyoldfunction:: cv.FindFundamentalMat(points1, points2, fundamentalMatrix, method=CV_FM_RANSAC, param1=1., param2=0.99, status=None) -> retval
 
     :param points1: Array of  ``N``  points from the first image. The point coordinates should be floating-point (single or double precision).
 
@@ -692,19 +698,157 @@ corresponding to the specified points. It can also be passed to
     Mat fundamental_matrix =
      findFundamentalMat(points1, points2, FM_RANSAC, 3, 0.99);
 
+findEssentialMat
+------------------
+Calculates an essential matrix from the corresponding points in two images.
+
+.. ocv:function:: Mat findEssentialMat( InputArray points1, InputArray points2, double focal=1.0, Point2d pp=Point2d(0, 0), int method=RANSAC, double prob=0.999, double threshold=1.0, OutputArray mask=noArray() )
+
+    :param points1: Array of  ``N`` ``(N >= 5)`` 2D points from the first image. The point coordinates should be floating-point (single or double precision).
+
+    :param points2: Array of the second image points of the same size and format as  ``points1`` .
+
+    :param focal: focal length of the camera. Note that this function assumes that ``points1`` and ``points2`` are feature points from cameras with same focal length and principle point.
+
+    :param pp: principle point of the camera.
+
+    :param method: Method for computing a fundamental matrix.
+
+            * **RANSAC** for the RANSAC algorithm.
+            * **MEDS** for the LMedS algorithm.
+
+    :param threshold: Parameter used for RANSAC. It is the maximum distance from a point to an epipolar line in pixels, beyond which the point is considered an outlier and is not used for computing the final fundamental matrix. It can be set to something like 1-3, depending on the accuracy of the point localization, image resolution, and the image noise.
+
+    :param prob: Parameter used for the RANSAC or LMedS methods only. It specifies a desirable level of confidence (probability) that the estimated matrix is correct.
+
+    :param mask: Output array of N elements, every element of which is set to 0 for outliers and to 1 for the other points. The array is computed only in the RANSAC and LMedS methods.
+
+This function estimates essential matrix based on the five-point algorithm solver in [Nister03]_. [SteweniusCFS]_ is also a related.
+The epipolar geometry is described by the following equation:
+
+.. math::
+
+    [p_2; 1]^T K^T E K [p_1; 1] = 0 \\
+
+    K =
+    \begin{bmatrix}
+    f & 0 & x_{pp}  \\
+    0 & f & y_{pp}  \\
+    0 & 0 & 1
+    \end{bmatrix}
+
+where
+:math:`E` is an essential matrix,
+:math:`p_1` and
+:math:`p_2` are corresponding points in the first and the second images, respectively.
+The result of this function may be passed further to :ocv:func:`decomposeEssentialMat` or :ocv:func:`recoverPose` to recover the relative pose between cameras.
+
+decomposeEssentialMat
+-------------------------
+Decompose an essential matrix to possible rotations and translation.
+
+.. ocv:function:: void decomposeEssentialMat( InputArray E, OutputArray R1, OutputArray R2, OutputArray t )
+
+    :param E: The input essential matrix.
+
+    :param R1: One possible rotation matrix.
+
+    :param R2: Another possible rotation matrix.
+
+    :param t: One possible translation.
+
+This function decompose an essential matrix ``E`` using svd decomposition [HartleyZ00]_. Generally 4 possible poses exists for a given ``E``.
+They are
+:math:`[R_1, t]`,
+:math:`[R_1, -t]`,
+:math:`[R_2, t]`,
+:math:`[R_2, -t]`.
+By decomposing ``E``, you can only get the direction of the translation, so the function returns unit ``t``.
+
+decomposeHomographyMat
+--------------------------
+Decompose a homography matrix to rotation(s), translation(s) and plane normal(s).
+
+.. ocv:function:: int decomposeHomographyMat( InputArray H,  InputArray K, OutputArrayOfArrays rotations, OutputArrayOfArrays translations, OutputArrayOfArrays normals)
+
+    :param H: The input homography matrix between two images.
+
+    :param K: The input intrinsic camera calibration matrix.
+
+    :param rotations: Array of rotation matrices.
+
+    :param translations: Array of translation matrices.
+
+    :param normals: Array of plane normal matrices.
+
+This function extracts relative camera motion between two views observing a planar object from the homography ``H`` induced by the plane.
+The intrinsic camera matrix ``K`` must also be provided. The function may return up to four mathematical solution sets. At least two of the
+solutions may further be invalidated if point correspondences are available by applying positive depth constraint (all points must be in front of the camera).
+The decomposition method is described in detail in [Malis]_.
+
+
+recoverPose
+---------------
+Recover relative camera rotation and translation from an estimated essential matrix and the corresponding points in two images, using cheirality check.
+Returns the number of inliers which pass the check.
+
+.. ocv:function:: int recoverPose( InputArray E, InputArray points1, InputArray points2, OutputArray R, OutputArray t, double focal = 1.0, Point2d pp = Point2d(0, 0), InputOutputArray mask = noArray())
+
+    :param E: The input essential matrix.
+
+    :param points1: Array of  ``N``  2D points from the first image. The point coordinates should be floating-point (single or double precision).
+
+    :param points2: Array of the second image points of the same size and format as  ``points1`` .
+
+    :param R: Recovered relative rotation.
+
+    :param t: Recoverd relative translation.
+
+    :param focal: Focal length of the camera. Note that this function assumes that ``points1`` and ``points2`` are feature points from cameras with same focal length and principle point.
+
+    :param pp: Principle point of the camera.
+
+    :param mask: Input/output mask for inliers in ``points1`` and ``points2``.
+                 If it is not empty, then it marks inliers in ``points1`` and ``points2`` for then given essential matrix ``E``.
+                 Only these inliers will be used to recover pose.
+                 In the output mask only inliers which pass the cheirality check.
+
+This function decomposes an essential matrix using :ocv:func:`decomposeEssentialMat` and then verifies possible pose hypotheses by doing cheirality check.
+The cheirality check basically means that the triangulated 3D points should have positive depth. Some details can be found in [Nister03]_.
+
+This function can be used to process output ``E`` and ``mask`` from :ocv:func:`findEssentialMat`.
+In this scenario, ``points1`` and ``points2`` are the same input for :ocv:func:`findEssentialMat`. ::
+
+    // Example. Estimation of fundamental matrix using the RANSAC algorithm
+    int point_count = 100;
+    vector<Point2f> points1(point_count);
+    vector<Point2f> points2(point_count);
+
+    // initialize the points here ... */
+    for( int i = 0; i < point_count; i++ )
+    {
+        points1[i] = ...;
+        points2[i] = ...;
+    }
+
+    double focal = 1.0;
+    cv::Point2d pp(0.0, 0.0);
+    Mat E, R, t, mask;
+
+    E = findEssentialMat(points1, points2, focal, pp, RANSAC, 0.999, 1.0, mask);
+    recoverPose(E, points1, points2, R, t, focal, pp, mask);
+
 
 
 findHomography
 ------------------
 Finds a perspective transformation between two planes.
 
-.. ocv:function:: Mat findHomography( InputArray srcPoints, InputArray dstPoints, int method=0, double ransacReprojThreshold=3, OutputArray mask=noArray() )
+.. ocv:function:: Mat findHomography( InputArray srcPoints, InputArray dstPoints, int method=0, double ransacReprojThreshold=3, OutputArray mask=noArray(), const int maxIters = 2000, const double confidence = 0.995)
 
 .. ocv:pyfunction:: cv2.findHomography(srcPoints, dstPoints[, method[, ransacReprojThreshold[, mask]]]) -> retval, mask
 
-.. ocv:cfunction:: int cvFindHomography( const CvMat* src_points, const CvMat* dst_points, CvMat* homography, int method=0, double ransacReprojThreshold=3, CvMat* mask=0 )
-
-.. ocv:pyoldfunction:: cv.FindHomography(srcPoints, dstPoints, H, method=0, ransacReprojThreshold=3.0, status=None) -> None
+.. ocv:cfunction:: int cvFindHomography( const CvMat* src_points, const CvMat* dst_points, CvMat* homography, int method=0, double ransacReprojThreshold=3, CvMat* mask=0, int maxIters = 2000, double confidence = 0.995)
 
     :param srcPoints: Coordinates of the points in the original plane, a matrix of the type  ``CV_32FC2``  or ``vector<Point2f>`` .
 
@@ -714,9 +858,9 @@ Finds a perspective transformation between two planes.
 
             * **0** - a regular method using all the points
 
-            * **CV_RANSAC** - RANSAC-based robust method
+            * **RANSAC** - RANSAC-based robust method
 
-            * **CV_LMEDS** - Least-Median robust method
+            * **LMEDS** - Least-Median robust method
 
     :param ransacReprojThreshold: Maximum allowed reprojection error to treat a point pair as an inlier (used in the RANSAC method only). That is, if
 
@@ -726,7 +870,11 @@ Finds a perspective transformation between two planes.
 
         then the point  :math:`i`  is considered an outlier. If  ``srcPoints``  and  ``dstPoints``  are measured in pixels, it usually makes sense to set this parameter somewhere in the range of 1 to 10.
 
-    :param mask: Optional output mask set by a robust method ( ``CV_RANSAC``  or  ``CV_LMEDS`` ).  Note that the input mask values are ignored.
+    :param mask: Optional output mask set by a robust method ( ``RANSAC``  or  ``LMEDS`` ).  Note that the input mask values are ignored.
+
+    :param maxIters: The maximum number of RANSAC iterations, 2000 is the maximum it can be.
+
+    :param confidence: Confidence level, between 0 and 1.
 
 The functions find and return the perspective transformation :math:`H` between the source and the destination planes:
 
@@ -744,7 +892,7 @@ is minimized. If the parameter ``method`` is set to the default value 0, the fun
 uses all the point pairs to compute an initial homography estimate with a simple least-squares scheme.
 
 However, if not all of the point pairs (
-:math:`srcPoints_i`,:math:`dstPoints_i` ) fit the rigid perspective transformation (that is, there
+:math:`srcPoints_i`, :math:`dstPoints_i` ) fit the rigid perspective transformation (that is, there
 are some outliers), this initial estimate will be poor.
 In this case, you can use one of the two robust methods. Both methods, ``RANSAC`` and ``LMeDS`` , try many different random subsets
 of the corresponding point pairs (of four pairs each), estimate
@@ -767,7 +915,7 @@ if there are no outliers and the noise is rather small, use the default method (
 
 The function is used to find initial intrinsic and extrinsic matrices.
 Homography matrix is determined up to a scale. Thus, it is normalized so that
-:math:`h_{33}=1` .
+:math:`h_{33}=1`. Note that whenever an H matrix cannot be estimated, an empty one will be returned.
 
 .. seealso::
 
@@ -810,7 +958,7 @@ Filters off small noise blobs (speckles) in the disparity map
 
 .. ocv:function:: void filterSpeckles( InputOutputArray img, double newVal, int maxSpeckleSize, double maxDiff, InputOutputArray buf=noArray() )
 
-.. ocv:pyfunction:: cv2.filterSpeckles(img, newVal, maxSpeckleSize, maxDiff[, buf]) -> None
+.. ocv:pyfunction:: cv2.filterSpeckles(img, newVal, maxSpeckleSize, maxDiff[, buf]) -> img, buf
 
     :param img: The input 16-bit signed disparity image
 
@@ -833,11 +981,9 @@ Returns the new camera matrix based on the free scaling parameter.
 
 .. ocv:cfunction:: void cvGetOptimalNewCameraMatrix( const CvMat* camera_matrix, const CvMat* dist_coeffs, CvSize image_size, double alpha, CvMat* new_camera_matrix, CvSize new_imag_size=cvSize(0,0), CvRect* valid_pixel_ROI=0, int center_principal_point=0 )
 
-.. ocv:pyoldfunction:: cv.GetOptimalNewCameraMatrix(cameraMatrix, distCoeffs, imageSize, alpha, newCameraMatrix, newImageSize=(0, 0), validPixROI=0, centerPrincipalPoint=0) -> None
-
     :param cameraMatrix: Input camera matrix.
 
-    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])`  of 4, 5, or 8 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
+    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])`  of 4, 5, 8 or 12 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
 
     :param imageSize: Original image size.
 
@@ -862,13 +1008,11 @@ initCameraMatrix2D
 ----------------------
 Finds an initial camera matrix from 3D-2D point correspondences.
 
-.. ocv:function:: Mat initCameraMatrix2D( InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints, Size imageSize, double aspectRatio=1.)
+.. ocv:function:: Mat initCameraMatrix2D( InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints, Size imageSize, double aspectRatio=1.0 )
 
 .. ocv:pyfunction:: cv2.initCameraMatrix2D(objectPoints, imagePoints, imageSize[, aspectRatio]) -> retval
 
 .. ocv:cfunction:: void cvInitIntrinsicParams2D( const CvMat* object_points, const CvMat* image_points, const CvMat* npoints, CvSize image_size, CvMat* camera_matrix, double aspect_ratio=1. )
-
-.. ocv:pyoldfunction:: cv.InitIntrinsicParams2D(objectPoints, imagePoints, npoints, imageSize, cameraMatrix, aspectRatio=1.) -> None
 
     :param objectPoints: Vector of vectors of the calibration pattern points in the calibration pattern coordinate space. In the old interface all the per-view vectors are concatenated. See :ocv:func:`calibrateCamera` for details.
 
@@ -917,8 +1061,6 @@ Projects 3D points to an image plane.
 
 .. ocv:cfunction:: void cvProjectPoints2( const CvMat* object_points, const CvMat* rotation_vector, const CvMat* translation_vector, const CvMat* camera_matrix, const CvMat* distortion_coeffs, CvMat* image_points, CvMat* dpdrot=NULL, CvMat* dpdt=NULL, CvMat* dpdf=NULL, CvMat* dpdc=NULL, CvMat* dpddist=NULL, double aspect_ratio=0 )
 
-.. ocv:pyoldfunction:: cv.ProjectPoints2(objectPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints, dpdrot=None, dpdt=None, dpdf=None, dpdc=None, dpddist=None)-> None
-
     :param objectPoints: Array of object points, 3xN/Nx3 1-channel or 1xN/Nx1 3-channel  (or  ``vector<Point3f>`` ), where N is the number of points in the view.
 
     :param rvec: Rotation vector. See  :ocv:func:`Rodrigues` for details.
@@ -927,7 +1069,7 @@ Projects 3D points to an image plane.
 
     :param cameraMatrix: Camera matrix  :math:`A = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}` .
 
-    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])`  of 4, 5, or 8 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
+    :param distCoeffs: Input vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])`  of 4, 5, 8 or 12 elements. If the vector is NULL/empty, the zero distortion coefficients are assumed.
 
     :param imagePoints: Output array of image points, 2xN/Nx2 1-channel or 1xN/Nx1 2-channel, or  ``vector<Point2f>`` .
 
@@ -962,15 +1104,13 @@ Reprojects a disparity image to 3D space.
 
 .. ocv:cfunction:: void cvReprojectImageTo3D( const CvArr* disparityImage, CvArr* _3dImage, const CvMat* Q, int handleMissingValues=0 )
 
-.. ocv:pyoldfunction:: cv.ReprojectImageTo3D(disparity, _3dImage, Q, handleMissingValues=0) -> None
-
     :param disparity: Input single-channel 8-bit unsigned, 16-bit signed, 32-bit signed or 32-bit floating-point disparity image.
 
     :param _3dImage: Output 3-channel floating-point image of the same size as  ``disparity`` . Each element of  ``_3dImage(x,y)``  contains 3D coordinates of the point  ``(x,y)``  computed from the disparity map.
 
     :param Q: :math:`4 \times 4`  perspective transformation matrix that can be obtained with  :ocv:func:`stereoRectify`.
 
-    :param handleMissingValues: Indicates, whether the function should handle missing values (i.e. points where the disparity was not computed). If ``handleMissingValues=true``, then pixels with the minimal disparity that corresponds to the outliers (see  :ocv:funcx:`StereoBM::operator()` ) are transformed to 3D points with a very large Z value (currently set to 10000).
+    :param handleMissingValues: Indicates, whether the function should handle missing values (i.e. points where the disparity was not computed). If ``handleMissingValues=true``, then pixels with the minimal disparity that corresponds to the outliers (see  :ocv:funcx:`StereoMatcher::compute` ) are transformed to 3D points with a very large Z value (currently set to 10000).
 
     :param ddepth: The optional output array depth. If it is ``-1``, the output image will have ``CV_32F`` depth. ``ddepth`` can also be set to ``CV_16S``, ``CV_32S`` or ``CV_32F``.
 
@@ -996,7 +1136,6 @@ Computes an RQ decomposition of 3x3 matrices.
 .. ocv:pyfunction:: cv2.RQDecomp3x3(src[, mtxR[, mtxQ[, Qx[, Qy[, Qz]]]]]) -> retval, mtxR, mtxQ, Qx, Qy, Qz
 
 .. ocv:cfunction:: void cvRQDecomp3x3( const CvMat * matrixM, CvMat * matrixR, CvMat * matrixQ, CvMat * matrixQx=NULL, CvMat * matrixQy=NULL, CvMat * matrixQz=NULL, CvPoint3D64f * eulerAngles=NULL )
-.. ocv:pyoldfunction:: cv.RQDecomp3x3(M, R, Q, Qx=None, Qy=None, Qz=None) -> eulerAngles
 
     :param src: 3x3 input matrix.
 
@@ -1027,8 +1166,6 @@ Converts a rotation matrix to a rotation vector or vice versa.
 
 .. ocv:cfunction:: int cvRodrigues2( const CvMat* src, CvMat* dst, CvMat* jacobian=0 )
 
-.. ocv:pyoldfunction:: cv.Rodrigues2(src, dst, jacobian=0)-> None
-
     :param src: Input rotation vector (3x1 or 1x3) or rotation matrix (3x3).
 
     :param dst: Output rotation matrix (3x3) or rotation vector (3x1 or 1x3), respectively.
@@ -1053,160 +1190,84 @@ used in the global 3D geometry optimization procedures like
 :ocv:func:`solvePnP` .
 
 
+StereoMatcher
+-------------
+.. ocv:class:: StereoMatcher : public Algorithm
 
-StereoBM
---------
-.. ocv:class:: StereoBM
+The base class for stereo correspondence algorithms.
 
-Class for computing stereo correspondence using the block matching algorithm. ::
-
-    // Block matching stereo correspondence algorithm class StereoBM
-    {
-        enum { NORMALIZED_RESPONSE = CV_STEREO_BM_NORMALIZED_RESPONSE,
-            BASIC_PRESET=CV_STEREO_BM_BASIC,
-            FISH_EYE_PRESET=CV_STEREO_BM_FISH_EYE,
-            NARROW_PRESET=CV_STEREO_BM_NARROW };
-
-        StereoBM();
-        // the preset is one of ..._PRESET above.
-        // ndisparities is the size of disparity range,
-        // in which the optimal disparity at each pixel is searched for.
-        // SADWindowSize is the size of averaging window used to match pixel blocks
-        //    (larger values mean better robustness to noise, but yield blurry disparity maps)
-        StereoBM(int preset, int ndisparities=0, int SADWindowSize=21);
-        // separate initialization function
-        void init(int preset, int ndisparities=0, int SADWindowSize=21);
-        // computes the disparity for the two rectified 8-bit single-channel images.
-        // the disparity will be 16-bit signed (fixed-point) or 32-bit floating-point image of the same size as left.
-        void operator()( InputArray left, InputArray right, OutputArray disparity, int disptype=CV_16S );
-
-        Ptr<CvStereoBMState> state;
-    };
-
-The class is a C++ wrapper for the associated functions. In particular, :ocv:funcx:`StereoBM::operator()` is the wrapper for
-:ocv:cfunc:`cvFindStereoCorrespondenceBM`.
-
-.. Sample code:
-
-   (Ocl) An example for using the stereoBM matching algorithm can be found at opencv_source_code/samples/ocl/stereo_match.cpp
-
-StereoBM::StereoBM
-------------------
-The constructors.
-
-.. ocv:function:: StereoBM::StereoBM()
-.. ocv:function:: StereoBM::StereoBM(int preset, int ndisparities=0, int SADWindowSize=21)
-
-.. ocv:pyfunction:: cv2.StereoBM([preset[, ndisparities[, SADWindowSize]]]) -> <StereoBM object>
-
-.. ocv:cfunction:: CvStereoBMState* cvCreateStereoBMState( int preset=CV_STEREO_BM_BASIC, int numberOfDisparities=0 )
-
-.. ocv:pyoldfunction:: cv.CreateStereoBMState(preset=CV_STEREO_BM_BASIC, numberOfDisparities=0)-> CvStereoBMState
-
-    :param preset: specifies the whole set of algorithm parameters, one of:
-
-            * BASIC_PRESET - parameters suitable for general cameras
-            * FISH_EYE_PRESET - parameters suitable for wide-angle cameras
-            * NARROW_PRESET - parameters suitable for narrow-angle cameras
-
-        After constructing the class, you can override any parameters set by the preset.
-
-    :param ndisparities: the disparity search range. For each pixel algorithm will find the best disparity from 0 (default minimum disparity) to ``ndisparities``. The search range can then be shifted by changing the minimum disparity.
-
-    :param SADWindowSize: the linear size of the blocks compared by the algorithm. The size should be odd (as the block is centered at the current pixel). Larger block size implies smoother, though less accurate disparity map. Smaller block size gives more detailed disparity map, but there is higher chance for algorithm to find a wrong correspondence.
-
-The constructors initialize ``StereoBM`` state. You can then call ``StereoBM::operator()`` to compute disparity for a specific stereo pair.
-
-.. note:: In the C API you need to deallocate ``CvStereoBM`` state when it is not needed anymore using ``cvReleaseStereoBMState(&stereobm)``.
-
-StereoBM::operator()
+StereoMatcher::compute
 -----------------------
-Computes disparity using the BM algorithm for a rectified stereo pair.
+Computes disparity map for the specified stereo pair
 
-.. ocv:function:: void StereoBM::operator()( InputArray left, InputArray right, OutputArray disparity, int disptype=CV_16S )
+.. ocv:function:: void StereoMatcher::compute( InputArray left, InputArray right, OutputArray disparity )
 
-.. ocv:pyfunction:: cv2.StereoBM.compute(left, right[, disparity[, disptype]]) -> disparity
-
-.. ocv:cfunction:: void cvFindStereoCorrespondenceBM( const CvArr* left, const CvArr* right, CvArr* disparity, CvStereoBMState* state )
-
-.. ocv:pyoldfunction:: cv.FindStereoCorrespondenceBM(left, right, disparity, state)-> None
+.. ocv:pyfunction:: cv2.StereoBM.compute(left, right[, disparity]) -> disparity
 
     :param left: Left 8-bit single-channel image.
 
     :param right: Right image of the same size and the same type as the left one.
 
-    :param disparity: Output disparity map. It has the same size as the input images. When ``disptype==CV_16S``, the map is a 16-bit signed single-channel image, containing disparity values scaled by 16. To get the true disparity values from such fixed-point representation, you will need to divide each  ``disp`` element by 16. If ``disptype==CV_32F``, the disparity map will already contain the real disparity values on output.
+    :param disparity: Output disparity map. It has the same size as the input images. Some algorithms, like StereoBM or StereoSGBM compute 16-bit fixed-point disparity map (where each disparity value has 4 fractional bits), whereas other algorithms output 32-bit floating-point disparity map.
 
-    :param disptype: Type of the output disparity map, ``CV_16S`` (default) or ``CV_32F``.
 
-    :param state: The pre-initialized ``CvStereoBMState`` structure in the case of the old API.
+StereoBM
+--------
+.. ocv:class:: StereoBM : public StereoMatcher
 
-The method executes the BM algorithm on a rectified stereo pair. See the ``stereo_match.cpp`` OpenCV sample on how to prepare images and call the method. Note that the method is not constant, thus you should not use the same ``StereoBM`` instance from within different threads simultaneously. The function is parallelized with the TBB library.
+Class for computing stereo correspondence using the block matching algorithm, introduced and contributed to OpenCV by K. Konolige.
 
+.. Sample code:
+
+   (Ocl) An example for using the stereoBM matching algorithm can be found at opencv_source_code/samples/ocl/stereo_match.cpp
+
+createStereoBM
+------------------
+Creates StereoBM object
+
+.. ocv:function:: Ptr<StereoBM> createStereoBM(int numDisparities=0, int blockSize=21)
+
+.. ocv:pyfunction:: cv2.createStereoBM([numDisparities[, blockSize]]) -> retval
+
+    :param numDisparities: the disparity search range. For each pixel algorithm will find the best disparity from 0 (default minimum disparity) to ``numDisparities``. The search range can then be shifted by changing the minimum disparity.
+
+    :param blockSize: the linear size of the blocks compared by the algorithm. The size should be odd (as the block is centered at the current pixel). Larger block size implies smoother, though less accurate disparity map. Smaller block size gives more detailed disparity map, but there is higher chance for algorithm to find a wrong correspondence.
+
+The function create ``StereoBM`` object. You can then call ``StereoBM::compute()`` to compute disparity for a specific stereo pair.
 
 
 StereoSGBM
 ----------
 
-.. ocv:class:: StereoSGBM
-
-Class for computing stereo correspondence using the semi-global block matching algorithm. ::
-
-    class StereoSGBM
-    {
-        StereoSGBM();
-        StereoSGBM(int minDisparity, int numDisparities, int SADWindowSize,
-                   int P1=0, int P2=0, int disp12MaxDiff=0,
-                   int preFilterCap=0, int uniquenessRatio=0,
-                   int speckleWindowSize=0, int speckleRange=0,
-                   bool fullDP=false);
-        virtual ~StereoSGBM();
-
-        virtual void operator()(InputArray left, InputArray right, OutputArray disp);
-
-        int minDisparity;
-        int numberOfDisparities;
-        int SADWindowSize;
-        int preFilterCap;
-        int uniquenessRatio;
-        int P1, P2;
-        int speckleWindowSize;
-        int speckleRange;
-        int disp12MaxDiff;
-        bool fullDP;
-
-        ...
-    };
+.. ocv:class:: StereoSGBM : public StereoMatcher
 
 The class implements the modified H. Hirschmuller algorithm [HH08]_ that differs from the original one as follows:
 
- * By default, the algorithm is single-pass, which means that you consider only 5 directions instead of 8. Set ``fullDP=true`` to run the full variant of the algorithm but beware that it may consume a lot of memory.
+ * By default, the algorithm is single-pass, which means that you consider only 5 directions instead of 8. Set ``mode=StereoSGBM::MODE_HH`` in ``createStereoSGBM`` to run the full variant of the algorithm but beware that it may consume a lot of memory.
 
- * The algorithm matches blocks, not individual pixels. Though, setting ``SADWindowSize=1`` reduces the blocks to single pixels.
+ * The algorithm matches blocks, not individual pixels. Though, setting ``blockSize=1`` reduces the blocks to single pixels.
 
  * Mutual information cost function is not implemented. Instead, a simpler Birchfield-Tomasi sub-pixel metric from [BT98]_ is used. Though, the color images are supported as well.
 
- * Some pre- and post- processing steps from K. Konolige algorithm :ocv:funcx:`StereoBM::operator()`  are included, for example: pre-filtering (``CV_STEREO_BM_XSOBEL`` type) and post-filtering (uniqueness check, quadratic interpolation and speckle filtering).
+ * Some pre- and post- processing steps from K. Konolige algorithm ``StereoBM``  are included, for example: pre-filtering (``StereoBM::PREFILTER_XSOBEL`` type) and post-filtering (uniqueness check, quadratic interpolation and speckle filtering).
 
 .. note::
 
    * (Python) An example illustrating the use of the StereoSGBM matching algorithm can be found at opencv_source_code/samples/python2/stereo_match.py
 
-StereoSGBM::StereoSGBM
+createStereoSGBM
 --------------------------
-.. ocv:function:: StereoSGBM::StereoSGBM()
+Creates StereoSGBM object
 
-.. ocv:function:: StereoSGBM::StereoSGBM( int minDisparity, int numDisparities, int SADWindowSize, int P1=0, int P2=0, int disp12MaxDiff=0, int preFilterCap=0, int uniquenessRatio=0, int speckleWindowSize=0, int speckleRange=0, bool fullDP=false)
+.. ocv:function:: Ptr<StereoSGBM> createStereoSGBM( int minDisparity, int numDisparities, int blockSize, int P1=0, int P2=0, int disp12MaxDiff=0, int preFilterCap=0, int uniquenessRatio=0, int speckleWindowSize=0, int speckleRange=0, int mode=StereoSGBM::MODE_SGBM)
 
-.. ocv:pyfunction:: cv2.StereoSGBM([minDisparity, numDisparities, SADWindowSize[, P1[, P2[, disp12MaxDiff[, preFilterCap[, uniquenessRatio[, speckleWindowSize[, speckleRange[, fullDP]]]]]]]]]) -> <StereoSGBM object>
-
-    Initializes ``StereoSGBM`` and sets parameters to custom values.??
+.. ocv:pyfunction:: cv2.createStereoSGBM(minDisparity, numDisparities, blockSize[, P1[, P2[, disp12MaxDiff[, preFilterCap[, uniquenessRatio[, speckleWindowSize[, speckleRange[, mode]]]]]]]]) -> retval
 
     :param minDisparity: Minimum possible disparity value. Normally, it is zero but sometimes rectification algorithms can shift images, so this parameter needs to be adjusted accordingly.
 
     :param numDisparities: Maximum disparity minus minimum disparity. The value is always greater than zero. In the current implementation, this parameter must be divisible by 16.
 
-    :param SADWindowSize: Matched block size. It must be an odd number  ``>=1`` . Normally, it should be somewhere in  the ``3..11``  range.
+    :param blockSize: Matched block size. It must be an odd number  ``>=1`` . Normally, it should be somewhere in  the ``3..11``  range.
 
     :param P1: The first parameter controlling the disparity smoothness. See below.
 
@@ -1222,43 +1283,21 @@ StereoSGBM::StereoSGBM
 
     :param speckleRange: Maximum disparity variation within each connected component. If you do speckle filtering, set the parameter to a positive value, it will be implicitly multiplied by 16. Normally, 1 or 2 is good enough.
 
-    :param fullDP: Set it to  ``true``  to run the full-scale two-pass dynamic programming algorithm. It will consume O(W*H*numDisparities) bytes, which is large for 640x480 stereo and huge for HD-size pictures. By default, it is set to ``false`` .
+    :param mode: Set it to  ``StereoSGBM::MODE_HH``  to run the full-scale two-pass dynamic programming algorithm. It will consume O(W*H*numDisparities) bytes, which is large for 640x480 stereo and huge for HD-size pictures. By default, it is set to ``false`` .
 
-The first constructor initializes ``StereoSGBM`` with all the default parameters. So, you only have to set ``StereoSGBM::numberOfDisparities`` at minimum. The second constructor enables you to set each parameter to a custom value.
+The first constructor initializes ``StereoSGBM`` with all the default parameters. So, you only have to set ``StereoSGBM::numDisparities`` at minimum. The second constructor enables you to set each parameter to a custom value.
 
-
-
-StereoSGBM::operator ()
------------------------
-
-.. ocv:function:: void StereoSGBM::operator()(InputArray left, InputArray right, OutputArray disp)
-
-.. ocv:pyfunction:: cv2.StereoSGBM.compute(left, right[, disp]) -> disp
-
-    Computes disparity using the SGBM algorithm for a rectified stereo pair.
-
-    :param left: Left 8-bit single-channel or 3-channel image.
-
-    :param right: Right image of the same size and the same type as the left one.
-
-    :param disp: Output disparity map. It is a 16-bit signed single-channel image of the same size as the input image. It contains disparity values  scaled by 16. So, to get the floating-point disparity map, you need to divide each  ``disp``  element by 16.
-
-The method executes the SGBM algorithm on a rectified stereo pair. See ``stereo_match.cpp`` OpenCV sample on how to prepare images and call the method.
-
-.. note:: The method is not constant, so you should not use the same ``StereoSGBM`` instance from different threads simultaneously.
 
 
 stereoCalibrate
 -------------------
 Calibrates the stereo camera.
 
-.. ocv:function:: double stereoCalibrate( InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints1, InputArrayOfArrays imagePoints2, InputOutputArray cameraMatrix1, InputOutputArray distCoeffs1, InputOutputArray cameraMatrix2, InputOutputArray distCoeffs2, Size imageSize, OutputArray R, OutputArray T, OutputArray E, OutputArray F, TermCriteria criteria=TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 1e-6), int flags=CALIB_FIX_INTRINSIC )
+.. ocv:function:: double stereoCalibrate( InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints1, InputArrayOfArrays imagePoints2, InputOutputArray cameraMatrix1, InputOutputArray distCoeffs1, InputOutputArray cameraMatrix2, InputOutputArray distCoeffs2, Size imageSize, OutputArray R, OutputArray T, OutputArray E, OutputArray F, int flags=CALIB_FIX_INTRINSIC ,TermCriteria criteria=TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 1e-6))
 
-.. ocv:pyfunction:: cv2.stereoCalibrate(objectPoints, imagePoints1, imagePoints2, imageSize[, cameraMatrix1[, distCoeffs1[, cameraMatrix2[, distCoeffs2[, R[, T[, E[, F[, criteria[, flags]]]]]]]]]]) -> retval, cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, R, T, E, F
+.. ocv:pyfunction:: cv2.stereoCalibrate(objectPoints, imagePoints1, imagePoints2, cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, imageSize[, R[, T[, E[, F[, flags[, criteria]]]]]]) -> retval, cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, R, T, E, F
 
-.. ocv:cfunction:: double cvStereoCalibrate( const CvMat* object_points, const CvMat* image_points1, const CvMat* image_points2, const CvMat* npoints, CvMat* camera_matrix1, CvMat* dist_coeffs1, CvMat* camera_matrix2, CvMat* dist_coeffs2, CvSize image_size, CvMat* R, CvMat* T, CvMat* E=0, CvMat* F=0, CvTermCriteria term_crit=cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS,30,1e-6), int flags=CV_CALIB_FIX_INTRINSIC )
-
-.. ocv:pyoldfunction:: cv.StereoCalibrate(objectPoints, imagePoints1, imagePoints2, pointCounts, cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, imageSize, R, T, E=None, F=None, term_crit=(CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 30, 1e-6), flags=CV_CALIB_FIX_INTRINSIC)-> None
+.. ocv:cfunction:: double cvStereoCalibrate( const CvMat* object_points, const CvMat* image_points1, const CvMat* image_points2, const CvMat* npoints, CvMat* camera_matrix1, CvMat* dist_coeffs1, CvMat* camera_matrix2, CvMat* dist_coeffs2, CvSize image_size, CvMat* R, CvMat* T, CvMat* E=0, CvMat* F=0, int flags=CV_CALIB_FIX_INTRINSIC, CvTermCriteria term_crit=cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS,30,1e-6) )
 
     :param objectPoints: Vector of vectors of the calibration pattern points.
 
@@ -1268,7 +1307,7 @@ Calibrates the stereo camera.
 
     :param cameraMatrix1: Input/output first camera matrix:  :math:`\vecthreethree{f_x^{(j)}}{0}{c_x^{(j)}}{0}{f_y^{(j)}}{c_y^{(j)}}{0}{0}{1}` , :math:`j = 0,\, 1` . If any of  ``CV_CALIB_USE_INTRINSIC_GUESS`` , ``CV_CALIB_FIX_ASPECT_RATIO`` , ``CV_CALIB_FIX_INTRINSIC`` , or  ``CV_CALIB_FIX_FOCAL_LENGTH``  are specified, some or all of the matrix components must be initialized. See the flags description for details.
 
-    :param distCoeffs1: Input/output vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])`  of 4, 5, or 8 elements. The output vector length depends on the flags.
+    :param distCoeffs1: Input/output vector of distortion coefficients  :math:`(k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6],[s_1, s_2, s_3, s_4]])`  of 4, 5, 8 ot 12 elements. The output vector length depends on the flags.
 
     :param cameraMatrix2: Input/output second camera matrix. The parameter is similar to ``cameraMatrix1`` .
 
@@ -1305,6 +1344,10 @@ Calibrates the stereo camera.
             * **CV_CALIB_FIX_K1,...,CV_CALIB_FIX_K6** Do not change the corresponding radial distortion coefficient during the optimization. If  ``CV_CALIB_USE_INTRINSIC_GUESS``  is set, the coefficient from the supplied  ``distCoeffs``  matrix is used. Otherwise, it is set to 0.
 
             * **CV_CALIB_RATIONAL_MODEL** Enable coefficients k4, k5, and k6. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the rational model and return 8 coefficients. If the flag is not set, the function computes  and returns only 5 distortion coefficients.
+
+            * **CALIB_THIN_PRISM_MODEL** Coefficients s1, s2, s3 and s4 are enabled. To provide the backward compatibility, this extra flag should be explicitly specified to make the calibration function use the thin prism model and return 12 coefficients. If the flag is not set, the function computes  and returns  only 5 distortion coefficients.
+
+            * **CALIB_FIX_S1_S2_S3_S4** The thin prism distortion coefficients are not changed during the optimization. If  ``CV_CALIB_USE_INTRINSIC_GUESS``  is set, the coefficient from the supplied  ``distCoeffs``  matrix is used. Otherwise, it is set to 0.
 
 The function estimates transformation between two cameras making a stereo pair. If you have a stereo camera where the relative position and orientation of two cameras is fixed, and if you computed poses of an object relative to the first camera and to the second camera, (R1, T1) and (R2, T2), respectively (this can be done with
 :ocv:func:`solvePnP` ), then those poses definitely relate to each other. This means that, given (
@@ -1346,8 +1389,6 @@ Computes rectification transforms for each head of a calibrated stereo camera.
 .. ocv:function:: void stereoRectify( InputArray cameraMatrix1, InputArray distCoeffs1, InputArray cameraMatrix2, InputArray distCoeffs2, Size imageSize, InputArray R, InputArray T, OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, OutputArray Q, int flags=CALIB_ZERO_DISPARITY, double alpha=-1, Size newImageSize=Size(), Rect* validPixROI1=0, Rect* validPixROI2=0 )
 
 .. ocv:cfunction:: void cvStereoRectify( const CvMat* camera_matrix1, const CvMat* camera_matrix2, const CvMat* dist_coeffs1, const CvMat* dist_coeffs2, CvSize image_size, const CvMat* R, const CvMat* T, CvMat* R1, CvMat* R2, CvMat* P1, CvMat* P2, CvMat* Q=0, int flags=CV_CALIB_ZERO_DISPARITY, double alpha=-1, CvSize new_image_size=cvSize(0,0), CvRect* valid_pix_ROI1=0, CvRect* valid_pix_ROI2=0 )
-
-.. ocv:pyoldfunction:: cv.StereoRectify(cameraMatrix1, cameraMatrix2, distCoeffs1, distCoeffs2, imageSize, R, T, R1, R2, P1, P2, Q=None, flags=CV_CALIB_ZERO_DISPARITY, alpha=-1, newImageSize=(0, 0)) -> (roi1, roi2)
 
     :param cameraMatrix1: First camera matrix.
 
@@ -1436,8 +1477,6 @@ Computes a rectification transform for an uncalibrated stereo camera.
 
 .. ocv:cfunction:: int cvStereoRectifyUncalibrated( const CvMat* points1, const CvMat* points2, const CvMat* F, CvSize img_size, CvMat* H1, CvMat* H2, double threshold=5 )
 
-.. ocv:pyoldfunction:: cv.StereoRectifyUncalibrated(points1, points2, F, imageSize, H1, H2, threshold=5)-> None
-
     :param points1: Array of feature points in the first image.
 
     :param points2: The corresponding points in the second image. The same formats as in  :ocv:func:`findFundamentalMat` are supported.
@@ -1483,10 +1522,372 @@ Reconstructs points by triangulation.
 
 The function reconstructs 3-dimensional points (in homogeneous coordinates) by using their observations with a stereo camera. Projections matrices can be obtained from :ocv:func:`stereoRectify`.
 
+.. note::
+
+    Keep in mind that all input data should be of float type in order for this function to work.
+
 .. seealso::
 
     :ocv:func:`reprojectImageTo3D`
 
+fisheye
+----------
+
+The methods in this namespace use a so-called fisheye camera model. ::
+
+    namespace fisheye
+    {
+        //! projects 3D points using fisheye model
+        void projectPoints(InputArray objectPoints, OutputArray imagePoints, const Affine3d& affine,
+            InputArray K, InputArray D, double alpha = 0, OutputArray jacobian = noArray());
+
+        //! projects points using fisheye model
+        void projectPoints(InputArray objectPoints, OutputArray imagePoints, InputArray rvec, InputArray tvec,
+            InputArray K, InputArray D, double alpha = 0, OutputArray jacobian = noArray());
+
+        //! distorts 2D points using fisheye model
+        void distortPoints(InputArray undistorted, OutputArray distorted, InputArray K, InputArray D, double alpha = 0);
+
+        //! undistorts 2D points using fisheye model
+        void undistortPoints(InputArray distorted, OutputArray undistorted,
+            InputArray K, InputArray D, InputArray R = noArray(), InputArray P  = noArray());
+
+        //! computing undistortion and rectification maps for image transform by cv::remap()
+        //! If D is empty zero distortion is used, if R or P is empty identity matrixes are used
+        void initUndistortRectifyMap(InputArray K, InputArray D, InputArray R, InputArray P,
+            const cv::Size& size, int m1type, OutputArray map1, OutputArray map2);
+
+        //! undistorts image, optionally changes resolution and camera matrix.
+        void undistortImage(InputArray distorted, OutputArray undistorted,
+            InputArray K, InputArray D, InputArray Knew = cv::noArray(), const Size& new_size = Size());
+
+        //! estimates new camera matrix for undistortion or rectification
+        void estimateNewCameraMatrixForUndistortRectify(InputArray K, InputArray D, const Size &image_size, InputArray R,
+            OutputArray P, double balance = 0.0, const Size& new_size = Size(), double fov_scale = 1.0);
+
+        //! performs camera calibaration
+        double calibrate(InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints, const Size& image_size,
+            InputOutputArray K, InputOutputArray D, OutputArrayOfArrays rvecs, OutputArrayOfArrays tvecs, int flags = 0,
+                TermCriteria criteria = TermCriteria(TermCriteria::COUNT + TermCriteria::EPS, 100, DBL_EPSILON));
+
+        //! stereo rectification estimation
+        void stereoRectify(InputArray K1, InputArray D1, InputArray K2, InputArray D2, const Size &imageSize, InputArray R, InputArray tvec,
+            OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, OutputArray Q, int flags, const Size &newImageSize = Size(),
+            double balance = 0.0, double fov_scale = 1.0);
+
+        //! performs stereo calibration
+        double stereoCalibrate(InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints1, InputArrayOfArrays imagePoints2,
+                                      InputOutputArray K1, InputOutputArray D1, InputOutputArray K2, InputOutputArray D2, Size imageSize,
+                                      OutputArray R, OutputArray T, int flags = CALIB_FIX_INTRINSIC,
+                                      TermCriteria criteria = TermCriteria(TermCriteria::COUNT + TermCriteria::EPS, 100, DBL_EPSILON));
+    };
+
+
+Definitions:
+Let P be a point in 3D of coordinates X in the world reference frame (stored in the matrix X)
+The coordinate vector of P in the camera reference frame is:
+
+.. class:: center
+.. math::
+
+    Xc = R X + T
+
+where R is the rotation matrix corresponding to the rotation vector om: R = rodrigues(om);
+call x, y and z the 3 coordinates of Xc:
+
+.. class:: center
+.. math::
+    x = Xc_1 \\
+    y = Xc_2 \\
+    z = Xc_3
+
+The pinehole projection coordinates of P is [a; b] where
+
+.. class:: center
+.. math::
+
+    a = x / z \ and \ b = y / z \\
+    r^2 = a^2 + b^2 \\
+    \theta = atan(r)
+
+Fisheye distortion:
+
+.. class:: center
+.. math::
+
+    \theta_d = \theta (1 + k_1 \theta^2 + k_2 \theta^4 + k_3 \theta^6 + k_4 \theta^8)
+
+The distorted point coordinates are [x'; y'] where
+
+..class:: center
+.. math::
+
+    x' = (\theta_d / r) x \\
+    y' = (\theta_d / r) y
+
+Finally, convertion into pixel coordinates: The final pixel coordinates vector [u; v] where:
+
+.. class:: center
+.. math::
+
+    u = f_x (x' + \alpha y') + c_x \\
+    v = f_y yy + c_y
+
+fisheye::projectPoints
+---------------------------
+Projects points using fisheye model
+
+.. ocv:function:: void fisheye::projectPoints(InputArray objectPoints, OutputArray imagePoints, const Affine3d& affine, InputArray K, InputArray D, double alpha = 0, OutputArray jacobian = noArray())
+
+.. ocv:function:: void fisheye::projectPoints(InputArray objectPoints, OutputArray imagePoints, InputArray rvec, InputArray tvec, InputArray K, InputArray D, double alpha = 0, OutputArray jacobian = noArray())
+
+    :param objectPoints: Array of object points, 1xN/Nx1 3-channel  (or  ``vector<Point3f>`` ), where N is the number of points in the view.
+
+    :param rvec: Rotation vector. See :ocv:func:`Rodrigues` for details.
+
+    :param tvec: Translation vector.
+
+    :param K: Camera matrix  :math:`K = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}`.
+
+    :param D: Input vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param alpha: The skew coefficient.
+
+    :param imagePoints: Output array of image points, 2xN/Nx2 1-channel or 1xN/Nx1 2-channel, or  ``vector<Point2f>``.
+
+    :param jacobian: Optional output 2Nx15 jacobian matrix of derivatives of image points with respect to components of the focal lengths, coordinates of the principal point, distortion coefficients, rotation vector, translation vector, and the skew. In the old interface different components of the jacobian are returned via different output parameters.
+
+The function computes projections of 3D points to the image plane given intrinsic and extrinsic camera parameters. Optionally, the function computes Jacobians - matrices of partial derivatives of image points coordinates (as functions of all the input parameters) with respect to the particular parameters, intrinsic and/or extrinsic.
+
+fisheye::distortPoints
+-------------------------
+Distorts 2D points using fisheye model.
+
+.. ocv:function:: void fisheye::distortPoints(InputArray undistorted, OutputArray distorted, InputArray K, InputArray D, double alpha = 0)
+
+    :param undistorted: Array of object points, 1xN/Nx1 2-channel  (or  ``vector<Point2f>`` ), where N is the number of points in the view.
+
+    :param K: Camera matrix  :math:`K = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}`.
+
+    :param D: Input vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param alpha: The skew coefficient.
+
+    :param distorted: Output array of image points, 1xN/Nx1 2-channel, or  ``vector<Point2f>`` .
+
+fisheye::undistortPoints
+-----------------------------
+Undistorts 2D points using fisheye model
+
+.. ocv:function:: void fisheye::undistortPoints(InputArray distorted, OutputArray undistorted, InputArray K, InputArray D, InputArray R = noArray(), InputArray P  = noArray())
+
+    :param distorted: Array of object points, 1xN/Nx1 2-channel  (or  ``vector<Point2f>`` ), where N is the number of points in the view.
+
+    :param K: Camera matrix  :math:`K = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}`.
+
+    :param D: Input vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param R: Rectification transformation in the object space: 3x3 1-channel, or vector: 3x1/1x3 1-channel or 1x1 3-channel
+
+    :param P: New camera matrix (3x3) or new projection matrix (3x4)
+
+    :param undistorted: Output array of image points, 1xN/Nx1 2-channel, or ``vector<Point2f>`` .
+
+
+fisheye::initUndistortRectifyMap
+-------------------------------------
+Computes undistortion and rectification maps for image transform by cv::remap(). If D is empty zero distortion is used, if R or P is empty identity matrixes are used.
+
+.. ocv:function:: void fisheye::initUndistortRectifyMap(InputArray K, InputArray D, InputArray R, InputArray P, const cv::Size& size, int m1type, OutputArray map1, OutputArray map2)
+
+    :param K: Camera matrix  :math:`K = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}`.
+
+    :param D: Input vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param R: Rectification transformation in the object space: 3x3 1-channel, or vector: 3x1/1x3 1-channel or 1x1 3-channel
+
+    :param P: New camera matrix (3x3) or new projection matrix (3x4)
+
+    :param size: Undistorted image size.
+
+    :param m1type: Type of the first output map that can be CV_32FC1 or CV_16SC2 . See convertMaps() for details.
+
+    :param map1: The first output map.
+
+    :param map2: The second output map.
+
+fisheye::undistortImage
+-----------------------
+Transforms an image to compensate for fisheye lens distortion.
+
+.. ocv:function:: void fisheye::undistortImage(InputArray distorted, OutputArray undistorted, InputArray K, InputArray D, InputArray Knew = cv::noArray(), const Size& new_size = Size())
+
+    :param distorted: image with fisheye lens distortion.
+
+    :param K: Camera matrix  :math:`K = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}`.
+
+    :param D: Input vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param Knew: Camera matrix of the distorted image. By default, it is the identity matrix but you may additionally scale and shift the result by using a different matrix.
+
+    :param undistorted: Output image with compensated fisheye lens distortion.
+
+The function transforms an image to compensate radial and tangential lens distortion.
+
+The function is simply a combination of
+:ocv:func:`fisheye::initUndistortRectifyMap` (with unity ``R`` ) and
+:ocv:func:`remap` (with bilinear interpolation). See the former function for details of the transformation being performed.
+
+See below the results of undistortImage.
+    * a\) result of :ocv:func:`undistort` of perspective camera model (all possible coefficients (k_1, k_2, k_3, k_4, k_5, k_6) of distortion were optimized under calibration)
+    * b\) result of :ocv:func:`fisheye::undistortImage` of fisheye camera model (all possible coefficients (k_1, k_2, k_3, k_4) of fisheye distortion were optimized under calibration)
+    * c\) original image was captured with fisheye lens
+
+Pictures a) and b) almost the same. But if we consider points of image located far from the center of image, we can notice that on image a) these points are distorted.
+
+.. image:: pics/fisheye_undistorted.jpg
+
+
+fisheye::estimateNewCameraMatrixForUndistortRectify
+----------------------------------------------------------
+Estimates new camera matrix for undistortion or rectification.
+
+.. ocv:function:: void fisheye::estimateNewCameraMatrixForUndistortRectify(InputArray K, InputArray D, const Size &image_size, InputArray R, OutputArray P, double balance = 0.0, const Size& new_size = Size(), double fov_scale = 1.0)
+
+    :param K: Camera matrix  :math:`K = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{_1}`.
+
+    :param D: Input vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param R: Rectification transformation in the object space: 3x3 1-channel, or vector: 3x1/1x3 1-channel or 1x1 3-channel
+
+    :param P: New camera matrix (3x3) or new projection matrix (3x4)
+
+    :param balance: Sets the new focal length in range between the min focal length and the max focal length. Balance is in range of [0, 1].
+
+    :param fov_scale: Divisor for new focal length.
+
+fisheye::stereoRectify
+------------------------------
+Stereo rectification for fisheye camera model
+
+.. ocv:function:: void fisheye::stereoRectify(InputArray K1, InputArray D1, InputArray K2, InputArray D2, const Size &imageSize, InputArray R, InputArray tvec, OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, OutputArray Q, int flags, const Size &newImageSize = Size(), double balance = 0.0, double fov_scale = 1.0)
+
+    :param K1: First camera matrix.
+
+    :param K2: Second camera matrix.
+
+    :param D1: First camera distortion parameters.
+
+    :param D2: Second camera distortion parameters.
+
+    :param imageSize: Size of the image used for stereo calibration.
+
+    :param rotation: Rotation matrix between the coordinate systems of the first and the second cameras.
+
+    :param tvec: Translation vector between coordinate systems of the cameras.
+
+    :param R1: Output  3x3 rectification transform (rotation matrix) for the first camera.
+
+    :param R2: Output  3x3 rectification transform (rotation matrix) for the second camera.
+
+    :param P1: Output  3x4 projection matrix in the new (rectified) coordinate systems for the first camera.
+
+    :param P2: Output  3x4 projection matrix in the new (rectified) coordinate systems for the second camera.
+
+    :param Q: Output  :math:`4 \times 4`  disparity-to-depth mapping matrix (see  :ocv:func:`reprojectImageTo3D` ).
+
+    :param flags: Operation flags that may be zero or  ``CV_CALIB_ZERO_DISPARITY`` . If the flag is set, the function makes the principal points of each camera have the same pixel coordinates in the rectified views. And if the flag is not set, the function may still shift the images in the horizontal or vertical direction (depending on the orientation of epipolar lines) to maximize the useful image area.
+
+    :param alpha: Free scaling parameter. If it is -1  or absent, the function performs the default scaling. Otherwise, the parameter should be between 0 and 1.  ``alpha=0``  means that the rectified images are zoomed and shifted so that only valid pixels are visible (no black areas after rectification).  ``alpha=1``  means that the rectified image is decimated and shifted so that all the pixels from the original images from the cameras are retained in the rectified images (no source image pixels are lost). Obviously, any intermediate value yields an intermediate result between those two extreme cases.
+
+    :param newImageSize: New image resolution after rectification. The same size should be passed to  :ocv:func:`initUndistortRectifyMap` (see the  ``stereo_calib.cpp``  sample in OpenCV samples directory). When (0,0) is passed (default), it is set to the original  ``imageSize`` . Setting it to larger value can help you preserve details in the original image, especially when there is a big radial distortion.
+
+    :param roi1: Optional output rectangles inside the rectified images where all the pixels are valid. If  ``alpha=0`` , the ROIs cover the whole images. Otherwise, they are likely to be smaller (see the picture below).
+
+    :param roi2: Optional output rectangles inside the rectified images where all the pixels are valid. If  ``alpha=0`` , the ROIs cover the whole images. Otherwise, they are likely to be smaller (see the picture below).
+
+    :param balance: Sets the new focal length in range between the min focal length and the max focal length. Balance is in range of [0, 1].
+
+    :param fov_scale: Divisor for new focal length.
+
+
+
+fisheye::calibrate
+----------------------------
+Performs camera calibaration
+
+.. ocv:function:: double fisheye::calibrate(InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints, const Size& image_size, InputOutputArray K, InputOutputArray D, OutputArrayOfArrays rvecs, OutputArrayOfArrays tvecs, int flags = 0, TermCriteria criteria = TermCriteria(TermCriteria::COUNT + TermCriteria::EPS, 100, DBL_EPSILON))
+
+    :param objectPoints: vector of vectors of calibration pattern points in the calibration pattern coordinate space.
+
+    :param imagePoints: vector of vectors of the projections of calibration pattern points. ``imagePoints.size()`` and ``objectPoints.size()`` and ``imagePoints[i].size()`` must be equal to ``objectPoints[i].size()`` for each ``i``.
+
+    :param image_size: Size of the image used only to initialize the intrinsic camera matrix.
+
+    :param K: Output 3x3 floating-point camera matrix  :math:`A = \vecthreethree{f_x}{0}{c_x}{0}{f_y}{c_y}{0}{0}{1}` . If  ``fisheye::CALIB_USE_INTRINSIC_GUESS``/ is specified, some or all of  ``fx, fy, cx, cy``  must be initialized before calling the function.
+
+    :param D: Output vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`.
+
+    :param rvecs: Output  vector  of rotation vectors (see  :ocv:func:`Rodrigues` ) estimated for each pattern view. That is, each k-th rotation vector together with the corresponding k-th translation vector (see the next output parameter description) brings the calibration pattern from the model coordinate space (in which object points are specified) to the world coordinate space, that is, a real position of the calibration pattern in the k-th pattern view (k=0.. *M* -1).
+
+    :param tvecs: Output vector of translation vectors estimated for each pattern view.
+
+    :param flags: Different flags that may be zero or a combination of the following values:
+
+        * **fisheye::CALIB_USE_INTRINSIC_GUESS** ``cameraMatrix``  contains valid initial values of  ``fx, fy, cx, cy``  that are optimized further. Otherwise, ``(cx, cy)``  is initially set to the image center ( ``imageSize``  is used), and focal distances are computed in a least-squares fashion.
+
+        * **fisheye::CALIB_RECOMPUTE_EXTRINSIC** Extrinsic will be recomputed after each iteration of intrinsic optimization.
+
+        * **fisheye::CALIB_CHECK_COND** The functions will check validity of condition number.
+
+        * **fisheye::CALIB_FIX_SKEW** Skew coefficient (alpha) is set to zero and stay zero.
+
+        * **fisheye::CALIB_FIX_K1..4** Selected distortion coefficients are set to zeros and stay zero.
+
+    :param criteria: Termination criteria for the iterative optimization algorithm.
+
+
+fisheye::stereoCalibrate
+----------------------------
+Performs stereo calibration
+
+.. ocv:function:: double fisheye::stereoCalibrate(InputArrayOfArrays objectPoints, InputArrayOfArrays imagePoints1, InputArrayOfArrays imagePoints2, InputOutputArray K1, InputOutputArray D1, InputOutputArray K2, InputOutputArray D2, Size imageSize, OutputArray R, OutputArray T, int flags = CALIB_FIX_INTRINSIC, TermCriteria criteria = TermCriteria(TermCriteria::COUNT + TermCriteria::EPS, 100, DBL_EPSILON))
+
+    :param objectPoints: Vector of vectors of the calibration pattern points.
+
+    :param imagePoints1: Vector of vectors of the projections of the calibration pattern points, observed by the first camera.
+
+    :param imagePoints2: Vector of vectors of the projections of the calibration pattern points, observed by the second camera.
+
+    :param K1: Input/output first camera matrix:  :math:`\vecthreethree{f_x^{(j)}}{0}{c_x^{(j)}}{0}{f_y^{(j)}}{c_y^{(j)}}{0}{0}{1}` , :math:`j = 0,\, 1` . If any of  ``fisheye::CALIB_USE_INTRINSIC_GUESS`` , ``fisheye::CV_CALIB_FIX_INTRINSIC`` are specified, some or all of the matrix components must be initialized.
+
+    :param D1: Input/output vector of distortion coefficients  :math:`(k_1, k_2, k_3, k_4)`  of 4 elements.
+
+    :param K2: Input/output second camera matrix. The parameter is similar to ``K1`` .
+
+    :param D2: Input/output lens distortion coefficients for the second camera. The parameter is similar to  ``D1`` .
+
+    :param imageSize: Size of the image used only to initialize intrinsic camera matrix.
+
+    :param R: Output rotation matrix between the 1st and the 2nd camera coordinate systems.
+
+    :param T: Output translation vector between the coordinate systems of the cameras.
+
+    :param flags: Different flags that may be zero or a combination of the following values:
+
+        * **fisheye::CV_CALIB_FIX_INTRINSIC** Fix ``K1, K2?`` and ``D1, D2?`` so that only ``R, T`` matrices are estimated.
+
+        * **fisheye::CALIB_USE_INTRINSIC_GUESS** ``K1, K2`` contains valid initial values of ``fx, fy, cx, cy`` that are optimized further. Otherwise, ``(cx, cy)`` is initially set to the image center (``imageSize`` is used), and focal distances are computed in a least-squares fashion.
+
+        * **fisheye::CALIB_RECOMPUTE_EXTRINSIC** Extrinsic will be recomputed after each iteration of intrinsic optimization.
+
+        * **fisheye::CALIB_CHECK_COND** The functions will check validity of condition number.
+
+        * **fisheye::CALIB_FIX_SKEW** Skew coefficient (alpha) is set to zero and stay zero.
+
+        * **fisheye::CALIB_FIX_K1..4** Selected distortion coefficients are set to zeros and stay zero.
+
+    :param criteria: Termination criteria for the iterative optimization algorithm.
 
 .. [BT98] Birchfield, S. and Tomasi, C. A pixel dissimilarity measure that is insensitive to image sampling. IEEE Transactions on Pattern Analysis and Machine Intelligence. 1998.
 
@@ -1494,8 +1895,16 @@ The function reconstructs 3-dimensional points (in homogeneous coordinates) by u
 
 .. [Hartley99] Hartley, R.I., Theory and Practice of Projective Rectification. IJCV 35 2, pp 115-127 (1999)
 
+.. [HartleyZ00] Hartley, R. and Zisserman, A. Multiple View Geomtry in Computer Vision, Cambridge University Press, 2000.
+
 .. [HH08] Hirschmuller, H. Stereo Processing by Semiglobal Matching and Mutual Information, PAMI(30), No. 2, February 2008, pp. 328-341.
+
+.. [Nister03] Nistér, D. An efficient solution to the five-point relative pose problem, CVPR 2003.
+
+.. [SteweniusCFS] Stewénius, H., Calibrated Fivepoint solver. http://www.vis.uky.edu/~stewe/FIVEPOINT/
 
 .. [Slabaugh] Slabaugh, G.G. Computing Euler angles from a rotation matrix. http://www.soi.city.ac.uk/~sbbh653/publications/euler.pdf (verified: 2013-04-15)
 
 .. [Zhang2000] Z. Zhang. A Flexible New Technique for Camera Calibration. IEEE Transactions on Pattern Analysis and Machine Intelligence, 22(11):1330-1334, 2000.
+
+.. [Malis] Malis, E. and Vargas, M. Deeper understanding of the homography decomposition for vision-based control, Research Report 6303, INRIA (2007)

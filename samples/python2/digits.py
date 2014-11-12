@@ -3,7 +3,7 @@
 '''
 SVM and KNearest digit recognition.
 
-Sample loads a dataset of handwritten digits from 'digits.png'.
+Sample loads a dataset of handwritten digits from '../data/digits.png'.
 Then it trains a SVM and KNearest classifiers on it and evaluates
 their accuracy.
 
@@ -23,15 +23,22 @@ Usage:
    digits.py
 '''
 
-import numpy as np
-import cv2
+# built-in modules
 from multiprocessing.pool import ThreadPool
-from common import clock, mosaic
+
+import cv2
+
+import numpy as np
 from numpy.linalg import norm
+
+# local modules
+from common import clock, mosaic
+
+
 
 SZ = 20 # size of each digit is SZ x SZ
 CLASS_N = 10
-DIGITS_FN = 'data/digits.png'
+DIGITS_FN = '../data/digits.png'
 
 def split2d(img, cell_size, flatten=True):
     h, w = img.shape[:2]

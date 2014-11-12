@@ -228,7 +228,7 @@ int CV_MorphologyBaseTest::prepare_test_case( int test_case_idx )
     if( shape == CV_SHAPE_CUSTOM )
     {
         eldata.resize(aperture_size.width*aperture_size.height);
-        uchar* src = test_mat[INPUT][1].data;
+        const uchar* src = test_mat[INPUT][1].ptr();
         int srcstep = (int)test_mat[INPUT][1].step;
         int i, j, nonzero = 0;
 
@@ -898,8 +898,8 @@ struct median_pair
 {
     int col;
     int val;
-    median_pair() {};
-    median_pair( int _col, int _val ) : col(_col), val(_val) {};
+    median_pair() { }
+    median_pair( int _col, int _val ) : col(_col), val(_val) { }
 };
 
 

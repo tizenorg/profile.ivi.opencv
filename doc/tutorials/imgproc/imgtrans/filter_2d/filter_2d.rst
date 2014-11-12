@@ -77,8 +77,8 @@ Code
 
 .. code-block:: cpp
 
-   #include "opencv2/imgproc/imgproc.hpp"
-   #include "opencv2/highgui/highgui.hpp"
+   #include "opencv2/imgproc.hpp"
+   #include "opencv2/highgui.hpp"
    #include <stdlib.h>
    #include <stdio.h>
 
@@ -106,7 +106,7 @@ Code
      { return -1; }
 
      /// Create window
-     namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+     namedWindow( window_name, WINDOW_AUTOSIZE );
 
      /// Initialize arguments for the filter
      anchor = Point( -1, -1 );
@@ -151,7 +151,7 @@ Explanation
 
    .. code-block:: cpp
 
-      namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+      namedWindow( window_name, WINDOW_AUTOSIZE );
 
 #. Initialize the arguments for the linear filter
 

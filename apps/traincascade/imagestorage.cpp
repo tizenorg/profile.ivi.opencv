@@ -1,7 +1,8 @@
-#include "opencv2/core/core.hpp"
-#include "opencv2/core/internal.hpp"
+#include "opencv2/core.hpp"
+#include "opencv2/core/core_c.h"
+#include "opencv2/imgproc.hpp"
+#include "opencv2/imgcodecs.hpp"
 
-#include "cv.h"
 #include "imagestorage.h"
 #include <stdio.h>
 #include <iostream>
@@ -97,7 +98,7 @@ bool CvCascadeImageReader::NegReader::get( Mat& _img )
             return false;
 
     Mat mat( winSize.height, winSize.width, CV_8UC1,
-        (void*)(img.data + point.y * img.step + point.x * img.elemSize()), img.step );
+        (void*)(img.ptr(point.y) + point.x * img.elemSize()), img.step );
     mat.copyTo(_img);
 
     if( (int)( point.x + (1.0F + stepFactor ) * winSize.width ) < img.cols )

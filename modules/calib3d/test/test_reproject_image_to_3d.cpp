@@ -41,6 +41,7 @@
 //M*/
 
 #include "test_precomp.hpp"
+#include "opencv2/calib3d/calib3d_c.h"
 #include <string>
 #include <limits>
 
@@ -141,7 +142,7 @@ protected:
                 Mat_<double> res = Q * Mat_<double>(4, 1, from);
                 res /= res(3, 0);
 
-                out3d_t pixel_exp = *(Vec3d*)res.data;
+                out3d_t pixel_exp = *res.ptr<Vec3d>();
                 out3d_t pixel_out = _3dImg(y, x);
 
                 const int largeZValue = 10000; /* see documentation */

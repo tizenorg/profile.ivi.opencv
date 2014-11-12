@@ -134,8 +134,8 @@ The tutorial code's is shown lines below. You can also download it from `here <h
 
 .. code-block:: cpp
 
-   #include "opencv2/imgproc/imgproc.hpp"
-   #include "opencv2/highgui/highgui.hpp"
+   #include "opencv2/imgproc.hpp"
+   #include "opencv2/highgui.hpp"
    #include <stdlib.h>
    #include <stdio.h>
 
@@ -167,19 +167,19 @@ The tutorial code's is shown lines below. You can also download it from `here <h
      src = imread( argv[1], 1 );
 
      /// Convert the image to Gray
-     cvtColor( src, src_gray, CV_RGB2GRAY );
+     cvtColor( src, src_gray, COLOR_RGB2GRAY );
 
      /// Create a window to display results
-     namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+     namedWindow( window_name, WINDOW_AUTOSIZE );
 
      /// Create Trackbar to choose type of Threshold
      createTrackbar( trackbar_type,
-                     window_name, &threshold_type,
-                     max_type, Threshold_Demo );
+             window_name, &threshold_type,
+             max_type, Threshold_Demo );
 
      createTrackbar( trackbar_value,
-                     window_name, &threshold_value,
-                     max_value, Threshold_Demo );
+             window_name, &threshold_value,
+             max_value, Threshold_Demo );
 
      /// Call the function to initialize
      Threshold_Demo( 0, 0 );
@@ -190,7 +190,7 @@ The tutorial code's is shown lines below. You can also download it from `here <h
        int c;
        c = waitKey( 20 );
        if( (char)c == 27 )
-         { break; }
+     { break; }
       }
 
    }
@@ -228,14 +228,14 @@ Explanation
         src = imread( argv[1], 1 );
 
         /// Convert the image to Gray
-        cvtColor( src, src_gray, CV_RGB2GRAY );
+        cvtColor( src, src_gray, COLOR_RGB2GRAY );
 
 
    * Create a window to display the result
 
      .. code-block:: cpp
 
-        namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+        namedWindow( window_name, WINDOW_AUTOSIZE );
 
    * Create :math:`2` trackbars for the user to enter user input:
 
@@ -245,12 +245,12 @@ Explanation
      .. code-block:: cpp
 
         createTrackbar( trackbar_type,
-                     window_name, &threshold_type,
-                     max_type, Threshold_Demo );
+             window_name, &threshold_type,
+             max_type, Threshold_Demo );
 
         createTrackbar( trackbar_value,
-                     window_name, &threshold_value,
-                     max_value, Threshold_Demo );
+             window_name, &threshold_value,
+             max_value, Threshold_Demo );
 
    * Wait until the user enters the threshold value, the type of thresholding (or until the program exits)
 

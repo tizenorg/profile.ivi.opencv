@@ -97,8 +97,8 @@ Code
 
 .. code-block:: cpp
 
-   #include "opencv2/highgui/highgui.hpp"
-   #include "opencv2/imgproc/imgproc.hpp"
+   #include "opencv2/highgui.hpp"
+   #include "opencv2/imgproc.hpp"
    #include <iostream>
    #include <stdio.h>
 
@@ -155,13 +155,13 @@ Code
       warpAffine( warp_dst, warp_rotate_dst, rot_mat, warp_dst.size() );
 
       /// Show what you got
-      namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( source_window, WINDOW_AUTOSIZE );
       imshow( source_window, src );
 
-      namedWindow( warp_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( warp_window, WINDOW_AUTOSIZE );
       imshow( warp_window, warp_dst );
 
-      namedWindow( warp_rotate_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( warp_rotate_window, WINDOW_AUTOSIZE );
       imshow( warp_rotate_window, warp_rotate_dst );
 
       /// Wait until user exits the program
@@ -265,13 +265,13 @@ Explanation
 
    .. code-block:: cpp
 
-      namedWindow( source_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( source_window, WINDOW_AUTOSIZE );
       imshow( source_window, src );
 
-      namedWindow( warp_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( warp_window, WINDOW_AUTOSIZE );
       imshow( warp_window, warp_dst );
 
-      namedWindow( warp_rotate_window, CV_WINDOW_AUTOSIZE );
+      namedWindow( warp_rotate_window, WINDOW_AUTOSIZE );
       imshow( warp_rotate_window, warp_rotate_dst );
 
 
