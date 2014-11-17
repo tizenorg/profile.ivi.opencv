@@ -20,8 +20,8 @@
 
 Name:           opencv
 %define libname lib%{name}
-%define soname  2_4
-Version:        2.4.9
+%define soname  3_0
+Version:        3.0.0beta
 Release:        0
 Summary:        Collection of algorithms for computer vision
 License:        BSD-3-Clause
@@ -49,8 +49,6 @@ BuildRequires:  qt5-plugin-platforminputcontext-ibus
 BuildRequires:  qt5-plugin-imageformat-ico
 BuildRequires:  qt5-qttest-devel
 BuildRequires:  qt5-qtconcurrent-devel
-BuildRequires: beignet-devel
-Requires: beignet
 Requires: qt5-qtwidgets
 
 %description
@@ -83,11 +81,11 @@ use the OpenCV library.
 
 # Windows specific and with wrong end of line
 rm -f doc/packaging.txt
-chmod +x samples/c/build_all.sh
-sed -i 's/\r$//' samples/c/adaptiveskindetector.cpp \
-                 samples/c/latentsvmdetect.cpp \
-                 samples/gpu/hog.cpp \
-                 samples/python/camshift.py
+#chmod +x samples/c/build_all.sh
+#sed -i 's/\r$//' samples/c/adaptiveskindetector.cpp \
+#                 samples/c/latentsvmdetect.cpp \
+#                 samples/gpu/hog.cpp \
+#                 samples/python/camshift.py
 
 %build
 export CFLAGS="%{optflags}"
@@ -111,6 +109,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DENABLE_SSE41=ON \
       -DENABLE_SSE42=ON \
       -DENABLE_SSSE3=ON \
+      -DWITH_IPP=OFF \
        ..
 
 make %{?_smp_mflags} VERBOSE=1
@@ -118,11 +117,6 @@ make %{?_smp_mflags} VERBOSE=1
 %install
 cd build
 make DESTDIR=%{?buildroot:%{buildroot}} install/fast
-#mkdir -p %{buildroot}%{_docdir}
-#mv %{buildroot}%{_datadir}/OpenCV/doc %{buildroot}%{_docdir}/%{name}-doc
-#mv %{buildroot}%{_datadir}/OpenCV/samples %{buildroot}%{_docdir}/%{name}-doc/examples
-#dos2unix %{buildroot}%{_docdir}/%{name}-doc/examples/python*/*.py
-#dos2unix %{buildroot}%{_docdir}/%{name}-doc/examples/gpu/*.cpp
 %fdupes -s %{buildroot}%{_docdir}/%{name}-doc/examples
 
 %clean
