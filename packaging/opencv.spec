@@ -31,8 +31,11 @@ Source0:        http://downloads.sourceforge.net/project/%{name}library/%{name}-
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  cmake
 BuildRequires:  fdupes
-#BuildRequires:  gstreamer-0_10-plugins-base-devel
-BuildRequires: gstreamer-devel
+BuildRequires:  gstreamer-devel
+BuildRequires:  pkgconfig(gstreamer-video-1.0)
+BuildRequires:  pkgconfig(gstreamer-app-1.0)
+BuildRequires:  pkgconfig(gstreamer-riff-1.0)
+BuildRequires:  pkgconfig(gstreamer-pbutils-1.0)
 BuildRequires:  libjpeg-devel
 BuildRequires:  libtiff-devel
 BuildRequires:  zlib-devel
